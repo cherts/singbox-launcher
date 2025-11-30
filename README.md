@@ -4,139 +4,141 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.24%2B-blue)](https://golang.org/)
 
-Кроссплатформенный графический лаунчер для [sing-box](https://github.com/SagerNet/sing-box) - универсального прокси-клиента.
+Cross-platform GUI launcher for [sing-box](https://github.com/SagerNet/sing-box) - universal proxy client.
 
-**Репозиторий**: [https://github.com/Leadaxe/singbox-launcher](https://github.com/Leadaxe/singbox-launcher)
+**Repository**: [https://github.com/Leadaxe/singbox-launcher](https://github.com/Leadaxe/singbox-launcher)
 
-## 🚀 Возможности
+**🌐 Languages**: [English](README.md) | [Русский](README_RU.md)
 
-- ✅ **Кроссплатформенность**: Windows, macOS, Linux (Android в разработке)
-- 🎯 **Простое управление**: Запуск/остановка VPN одной кнопкой
-- 📊 **Clash API интеграция**: Управление прокси через Clash-совместимый API
-- 🔄 **Автоматическое обновление конфигурации**: Парсинг подписок и обновление прокси-списка
-- 📈 **Диагностика**: Проверка IP, STUN, файлов
-- 🔔 **System Tray**: Работа из системного трея
-- 📝 **Логирование**: Подробные логи всех операций
+## 🚀 Features
 
-## 📋 Требования
+- ✅ **Cross-platform**: Windows, macOS, Linux (Android in development)
+- 🎯 **Simple Control**: Start/stop VPN with one button
+- 📊 **Clash API Integration**: Manage proxies via Clash-compatible API
+- 🔄 **Automatic Configuration Update**: Parse subscriptions and update proxy list
+- 📈 **Diagnostics**: IP check, STUN, file verification
+- 🔔 **System Tray**: Run from system tray
+- 📝 **Logging**: Detailed logs of all operations
+
+## 📋 Requirements
 
 ### Windows
 - Windows 10/11 (x64)
-- [sing-box](https://github.com/SagerNet/sing-box/releases) (исполняемый файл)
-- [WinTun](https://www.wintun.net/) (wintun.dll) - лицензия MIT, можно распространять
+- [sing-box](https://github.com/SagerNet/sing-box/releases) (executable file)
+- [WinTun](https://www.wintun.net/) (wintun.dll) - MIT license, can be distributed
 
 ### macOS
-- macOS 10.15+ (Catalina или новее)
-- [sing-box](https://github.com/SagerNet/sing-box/releases) (исполняемый файл)
+- macOS 10.15+ (Catalina or newer)
+- [sing-box](https://github.com/SagerNet/sing-box/releases) (executable file)
 
 ### Linux
-- Современный дистрибутив Linux (x64)
-- [sing-box](https://github.com/SagerNet/sing-box/releases) (исполняемый файл)
+- Modern Linux distribution (x64)
+- [sing-box](https://github.com/SagerNet/sing-box/releases) (executable file)
 
-## 📦 Установка
+## 📦 Installation
 
 ### Windows
 
-1. Скачайте последний релиз с [GitHub Releases](https://github.com/Leadaxe/singbox-launcher/releases)
-2. Распакуйте архив в любую папку (например, `C:\Program Files\singbox-launcher`)
-3. Поместите следующие файлы в папку `bin\`:
-   - `sing-box.exe` - из [релизов sing-box](https://github.com/SagerNet/sing-box/releases)
-   - `wintun.dll` - из [релизов WinTun](https://www.wintun.net/) (лицензия MIT, можно распространять)
-     * **Примечание:** В релизах GitHub `wintun.dll` может быть уже включен для удобства
-   - `config.json` - скопируйте `config.json.example` в `config.json` и настройте под себя
+1. Download the latest release from [GitHub Releases](https://github.com/Leadaxe/singbox-launcher/releases)
+2. Extract the archive to any folder (e.g., `C:\Program Files\singbox-launcher`)
+3. Place the following files in the `bin\` folder:
+   - `sing-box.exe` - from [sing-box releases](https://github.com/SagerNet/sing-box/releases)
+   - `wintun.dll` - from [WinTun releases](https://www.wintun.net/) (MIT license, can be distributed)
+     * **Note:** In GitHub releases, `wintun.dll` may already be included for convenience
+   - `config.json` - copy `config.json.example` to `config.json` and configure it
 
-4. Запустите `singbox-launcher.exe`
+4. Run `singbox-launcher.exe`
 
 ### macOS
 
-1. Скачайте последний релиз для macOS
-2. Распакуйте архив
-3. Поместите файлы в папку `bin/`:
-   - `sing-box` - исполняемый файл для macOS
-   - `config.json` - конфигурационный файл
+1. Download the latest release for macOS
+2. Extract the archive
+3. Place files in the `bin/` folder:
+   - `sing-box` - executable file for macOS
+   - `config.json` - configuration file
 
-4. Запустите приложение:
+4. Run the application:
    ```bash
    ./singbox-launcher
    ```
 
 ### Linux
 
-1. Скачайте последний релиз для Linux
-2. Распакуйте архив
-3. Поместите файлы в папку `bin/`:
-   - `sing-box` - исполняемый файл для Linux
-   - `config.json` - конфигурационный файл
+1. Download the latest release for Linux
+2. Extract the archive
+3. Place files in the `bin/` folder:
+   - `sing-box` - executable file for Linux
+   - `config.json` - configuration file
 
-4. Сделайте исполняемым и запустите:
+4. Make executable and run:
    ```bash
    chmod +x singbox-launcher
    ./singbox-launcher
    ```
 
-## 📖 Использование
+## 📖 Usage
 
-### Первый запуск
+### First Launch
 
-1. Убедитесь, что файлы `sing-box` и `config.json` находятся в папке `bin/`
-2. Запустите лаунчер
-3. Нажмите кнопку **"Start VPN"** для запуска sing-box
+1. Make sure `sing-box` and `config.json` files are in the `bin/` folder
+2. Launch the launcher
+3. Click the **"Start VPN"** button to start sing-box
 
-### Основные функции
+### Main Features
 
-#### Вкладка "Control"
-- **Start VPN** - Запустить sing-box
-- **Stop VPN** - Остановить sing-box
-- **Exit** - Выход из приложения
+#### "Control" Tab
+- **Start VPN** - Start sing-box
+- **Stop VPN** - Stop sing-box
+- **Exit** - Exit the application
 
-#### Вкладка "Diagnostics"
-- **Check Files** - Проверить наличие необходимых файлов
-- **Check STUN** - Определить внешний IP через STUN
-- Кнопки для проверки IP на различных сервисах
+#### "Diagnostics" Tab
+- **Check Files** - Check for required files
+- **Check STUN** - Determine external IP via STUN
+- Buttons to check IP on various services
 
-#### Вкладка "Tools"
-- **Open Logs Folder** - Открыть папку с логами
-- **Update Config** - Обновить конфигурацию из подписок
-- **Open Config Folder** - Открыть папку с конфигурацией
-- **Kill Sing-Box** - Принудительно завершить процесс sing-box
+#### "Tools" Tab
+- **Open Logs Folder** - Open logs folder
+- **Update Config** - Update configuration from subscriptions
+- **Open Config Folder** - Open configuration folder
+- **Kill Sing-Box** - Force kill sing-box process
 
-#### Вкладка "Clash API"
-- **Test API Connection** - Проверить подключение к Clash API
-- **Load Proxies** - Загрузить список прокси из выбранной группы
-- Переключение между прокси-серверами
-- Проверка задержки (ping) для каждого прокси
+#### "Clash API" Tab
+- **Test API Connection** - Test Clash API connection
+- **Load Proxies** - Load proxy list from selected group
+- Switch between proxy servers
+- Check latency (ping) for each proxy
 
 ### System Tray
 
-Приложение работает в системном трее. Кликните по иконке для:
-- Открытия главного окна
-- Запуска/остановки VPN
-- Выхода из приложения
+The application runs in the system tray. Click the icon to:
+- Open the main window
+- Start/stop VPN
+- Exit the application
 
-## ⚙️ Конфигурация
+## ⚙️ Configuration
 
-### Структура папок
+### Folder Structure
 
 ```
 singbox-launcher/
 ├── bin/
-│   ├── sing-box.exe (или sing-box для Unix) - скачать отдельно
-│   ├── wintun.dll (только Windows) - скачать отдельно
-│   └── config.json - создать из config.json.example
+│   ├── sing-box.exe (or sing-box for Unix) - download separately
+│   ├── wintun.dll (Windows only) - download separately
+│   └── config.json - create from config.json.example
 ├── logs/
 │   ├── singbox-launcher.log
 │   ├── sing-box.log
 │   └── api.log
-└── singbox-launcher.exe (или singbox-launcher для Unix)
+└── singbox-launcher.exe (or singbox-launcher for Unix)
 ```
 
-### Настройка config.json
+### Configuring config.json
 
-Лаунчер использует стандартный конфигурационный файл sing-box. Подробная документация доступна на [официальном сайте sing-box](https://sing-box.sagernet.org/configuration/).
+The launcher uses the standard sing-box configuration file. Detailed documentation is available on the [official sing-box website](https://sing-box.sagernet.org/configuration/).
 
-#### Включение Clash API
+#### Enabling Clash API
 
-Для работы вкладки "Clash API" добавьте в `config.json`:
+To use the "Clash API" tab, add to `config.json`:
 
 ```json
 {
@@ -149,9 +151,9 @@ singbox-launcher/
 }
 ```
 
-#### Настройка парсера подписок
+#### Subscription Parser Configuration
 
-Для автоматического обновления конфигурации из подписок добавьте в начало `config.json`:
+For automatic configuration updates from subscriptions, add at the beginning of `config.json`:
 
 ```json
 {
@@ -180,19 +182,21 @@ singbox-launcher/
     }
   }
   */
-  // ... остальная конфигурация
+  // ... rest of configuration
 }
 ```
 
-## 🔄 Парсер подписок - Подробная логика работы
+**📖 For detailed parser configuration documentation, see [ParserConfig.md](ParserConfig.md)**
 
-Парсер подписок - это встроенная функция, которая автоматически обновляет список прокси-серверов в `config.json` из подписок (subscription URLs).
+## 🔄 Subscription Parser - Detailed Logic
 
-### Как это работает
+The subscription parser is a built-in feature that automatically updates the proxy server list in `config.json` from subscriptions (subscription URLs).
 
-#### 1. Конфигурация парсера
+### How It Works
 
-В начале файла `config.json` должен быть блок `/** @ParcerConfig ... */` с JSON-конфигурацией:
+#### 1. Parser Configuration
+
+At the beginning of the `config.json` file, there should be a `/** @ParcerConfig ... */` block with JSON configuration:
 
 ```json
 {
@@ -225,365 +229,283 @@ singbox-launcher/
 }
 ```
 
-#### 2. Процесс обновления
+#### 2. Update Process
 
-Когда вы нажимаете кнопку **"Update Config"** во вкладке "Tools":
+When you click the **"Update Config"** button in the "Tools" tab:
 
-1. **Чтение конфигурации**
-   - Парсер находит блок `@ParcerConfig` в `config.json`
-   - Извлекает список URL подписок из поля `proxies[].source`
+1. **Reading Configuration**
+   - Parser finds the `@ParcerConfig` block in `config.json`
+   - Extracts subscription URLs from the `proxies[].source` field
 
-2. **Загрузка подписок**
-   - Для каждого URL из `proxies[].source`:
-     - Скачивается содержимое подписки (поддерживаются Base64 и plain-текст)
-     - Декодируется и парсится список прокси-серверов
+2. **Loading Subscriptions**
+   - For each URL from `proxies[].source`:
+     - Downloads subscription content (Base64 and plain text supported)
+     - Decodes and parses the proxy server list
 
-3. **Поддерживаемые протоколы**
+3. **Supported Protocols**
    - ✅ VLESS
    - ✅ VMess
    - ✅ Trojan
    - ✅ Shadowsocks (SS)
 
-4. **Извлечение информации**
-   - Из каждого URI извлекается:
-     - **Тег (tag)**: левая часть комментария до `|` (например, `🇳🇱Нидерланды`)
-     - **Комментарий (comment)**: весь текст после `#` в URI
-     - **Параметры подключения**: сервер, порт, UUID, TLS настройки и т.д.
+4. **Information Extraction**
+   - From each URI extracts:
+     - **Tag**: left part of comment before `|` (e.g., `🇳🇱Netherlands`)
+     - **Comment**: entire text after `#` in URI
+     - **Connection parameters**: server, port, UUID, TLS settings, etc.
 
-5. **Фильтрация узлов**
+5. **Node Filtering**
 
-   **Фильтр `skip`** (на уровне подписки):
-   - Если узел совпадает с любым фильтром из `skip` - он пропускается
-   - Пример: `"skip": [ { "tag": "!/🇷🇺/i" } ]` - пропустить все НЕ российские прокси
+   **`skip` filter** (at subscription level):
+   - If a node matches any filter from `skip` - it is skipped
+   - Example: `"skip": [ { "tag": "!/🇷🇺/i" } ]` - skip all non-Russian proxies
    
-   **Фильтр `proxies`** (на уровне селектора):
-   - Определяет, какие узлы попадут в конкретный селектор
-   - Пример: `"proxies": { "tag": "!/(🇷🇺)/i" }` - все кроме российских
+   **`proxies` filter** (at selector level):
+   - Determines which nodes will be included in a specific selector
+   - Example: `"proxies": { "tag": "!/(🇷🇺)/i" }` - all except Russian
 
-   **Поддерживаемые поля фильтров:**
-   - `tag` - имя тега (с учетом регистра и эмодзи)
-   - `host` - hostname сервера
-   - `label` - исходная строка после `#` в URI
-   - `scheme` - протокол (`vless`, `vmess`, `trojan`, `ss`)
-   - `fragment` - URI фрагмент (равен `label`)
-   - `comment` - правая часть `label` после `|`
+   **Supported filter fields:**
+   - `tag` - tag name (case-sensitive, with emoji)
+   - `host` - server hostname
+   - `label` - original string after `#` in URI
+   - `scheme` - protocol (`vless`, `vmess`, `trojan`, `ss`)
+   - `fragment` - URI fragment (equals `label`)
+   - `comment` - right part of `label` after `|`
 
-   **Форматы паттернов:**
-   - `"literal"` - точное совпадение (с учетом регистра)
-   - `"!literal"` - отрицание (НЕ совпадает)
-   - `"/regex/i"` - регулярное выражение с флагом `i` (без учета регистра)
-   - `"!/regex/i"` - отрицание регулярного выражения
+   **Pattern formats:**
+   - `"literal"` - exact match (case-sensitive)
+   - `"!literal"` - negation (does NOT match)
+   - `"/regex/i"` - regular expression with `i` flag (case-insensitive)
+   - `"!/regex/i"` - negated regular expression
 
-6. **Группировка в селекторы**
+6. **Grouping into Selectors**
 
-   Для каждого объекта в `outbounds[]` создается селектор:
+   For each object in `outbounds[]`, a selector is created:
    
-   - **`tag`**: имя селектора (используется в UI и маршрутизации)
-   - **`type`**: всегда `"selector"` для селекторов
-   - **`outbounds.proxies`**: фильтр для отбора узлов (OR между объектами, AND внутри объекта)
-   - **`outbounds.addOutbounds`**: дополнительные теги, добавляемые в начало списка (например, `["direct-out"]`)
-   - **`outbounds.preferredDefault`**: фильтр для определения прокси по умолчанию
-   - **`options`**: дополнительные поля (например, `interrupt_exist_connections: true`)
-   - **`comment`**: комментарий, выводимый перед JSON селектора
+   - **`tag`**: selector name (used in UI and routing)
+   - **`type`**: always `"selector"` for selectors
+   - **`outbounds.proxies`**: filter for node selection (OR between objects, AND inside object)
+   - **`outbounds.addOutbounds`**: additional tags added to the beginning of the list (e.g., `["direct-out"]`)
+   - **`outbounds.preferredDefault`**: filter to determine default proxy
+   - **`options`**: additional fields (e.g., `interrupt_exist_connections: true`)
+   - **`comment`**: comment displayed before JSON selector
 
-7. **Запись результата**
+7. **Writing Result**
 
-   Парсер находит в `config.json` блок между маркерами:
+   Parser finds in `config.json` the block between markers:
    ```
    /** @ParserSTART */
-   ... здесь будут прокси и селекторы ...
+   ... proxies and selectors will be here ...
    /** @ParserEND */
    ```
    
-   И заменяет его на:
-   - Список всех отфильтрованных прокси-серверов в формате JSON
-   - Селекторы с группировкой прокси по заданным правилам
-   - Комментарии из исходных URI
+   And replaces it with:
+   - List of all filtered proxy servers in JSON format
+   - Selectors with proxy grouping according to specified rules
+   - Comments from original URIs
 
-### Пример работы
+### Important Notes
 
-**Исходная подписка содержит:**
-```
-vless://uuid@server1.com:443?...#🇳🇱Нидерланды
-vless://uuid@server2.com:443?...#🇷🇺Россия
-vless://uuid@server3.com:443?...#🇺🇸США
-```
+1. **Stop sing-box before updating**
+   - Clash API may react to intermediate file
+   - Use "Stop VPN" button before "Update Config"
 
-**Конфигурация парсера:**
-```json
-{
-  "proxies": [
-    { "source": "https://subscription-url" }
-  ],
-  "outbounds": [
-    {
-      "tag": "proxy-out",
-      "outbounds": {
-        "proxies": { "tag": "!/(🇷🇺)/i" },
-        "addOutbounds": ["direct-out"],
-        "preferredDefault": { "tag": "/🇳🇱/i" }
-      }
-    },
-    {
-      "tag": "ruvpn",
-      "outbounds": {
-        "proxies": { "tag": "/🇷🇺/i" }
-      }
-    }
-  ]
-}
-```
+2. **Markers are required**
+   - `/** @ParserSTART */` and `/** @ParserEND */` must be in `config.json`
+   - Without them, parser doesn't know where to insert the result
 
-**Результат в config.json:**
-```json
-/** @ParserSTART */
-// 🇳🇱Нидерланды
-{"tag":"🇳🇱Нидерланды","type":"vless",...},
-// 🇺🇸США
-{"tag":"🇺🇸США","type":"vless",...},
-// Proxy group for international connections
-{"tag":"proxy-out","type":"selector","outbounds":["direct-out","🇳🇱Нидерланды","🇺🇸США"],"default":"🇳🇱Нидерланды"},
-// 🇷🇺Россия
-{"tag":"🇷🇺Россия","type":"vless",...},
-// Proxy group for Russia
-{"tag":"ruvpn","type":"selector","outbounds":["🇷🇺Россия"],"default":"🇷🇺Россия"},
-/** @ParserEND */
-```
+3. **Automatic normalization**
+   - Incorrect flag `🇪🇳` is automatically replaced with `🇬🇧`
+   - Normalization logic can be extended in parser code
 
-### Важные замечания
+4. **UI Integration**
+   - "Clash API" tab automatically picks up selector list
+   - By default, selector from `route.final` is selected (if matches)
+   - Can be switched via dropdown list
 
-1. **Остановите sing-box перед обновлением**
-   - Clash API может отреагировать на промежуточный файл
-   - Используйте кнопку "Stop VPN" перед "Update Config"
+5. **Multiple Subscriptions**
+   - Multiple subscriptions can be specified in `proxies[]` array
+   - All nodes will be merged and filtered together
 
-2. **Маркеры обязательны**
-   - `/** @ParserSTART */` и `/** @ParserEND */` должны быть в `config.json`
-   - Без них парсер не знает, куда вставлять результат
+**📖 For detailed parser configuration, see [ParserConfig.md](ParserConfig.md)**
 
-3. **Автоматическая нормализация**
-   - Некорректный флаг `🇪🇳` автоматически заменяется на `🇬🇧`
-   - Можно расширить логику нормализации в коде парсера
-
-4. **Интеграция с UI**
-   - Вкладка "Clash API" автоматически подхватывает список селекторов
-   - По умолчанию выбирается селектор из `route.final` (если совпадает)
-   - Можно переключить через выпадающий список
-
-5. **Множественные подписки**
-   - Можно указать несколько подписок в массиве `proxies[]`
-   - Все узлы будут объединены и отфильтрованы вместе
-
-### Расширенная конфигурация
-
-**Фильтрация по нескольким критериям:**
-```json
-{
-  "proxies": [
-    {
-      "source": "https://subscription-url",
-      "skip": [
-        { "tag": "/test/i" },
-        { "host": "slow-server.com" }
-      ]
-    }
-  ]
-}
-```
-
-**Сложные фильтры в селекторах:**
-```json
-{
-  "outbounds": {
-    "proxies": {
-      "tag": "!/(🇷🇺|🇨🇳)/i",
-      "scheme": "vless"
-    }
-  }
-}
-```
-
-Подробнее см. [ParserConfig.md](ParserConfig.md).
-
-## 🏗️ Архитектура проекта
+## 🏗️ Project Architecture
 
 ```
 singbox-launcher/
-├── api/              # Clash API клиент
-├── assets/           # Иконки и ресурсы
-├── bin/              # Исполняемые файлы и конфигурация
-├── build/            # Скрипты сборки
-├── cmd/              # Точки входа приложения
-│   └── desktop/      # Desktop версия (будущее)
-├── core/             # Основная логика приложения
-├── internal/         # Внутренние пакеты
-│   └── platform/     # Платформо-специфичный код
+├── api/              # Clash API client
+├── assets/           # Icons and resources
+├── bin/              # Executables and configuration
+├── build/            # Build scripts
+├── core/             # Core application logic
+├── internal/         # Internal packages
+│   └── platform/     # Platform-specific code
 │       ├── platform_windows.go
 │       ├── platform_darwin.go
 │       └── platform_common.go
-├── ui/               # Пользовательский интерфейс
-├── logs/             # Логи приложения
-├── main.go           # Точка входа
-├── go.mod            # Зависимости Go
-└── README.md         # Этот файл
+├── ui/               # User interface
+├── logs/             # Application logs
+├── main.go           # Entry point
+├── go.mod            # Go dependencies
+└── README.md         # This file
 ```
 
-### Кроссплатформенность
+### Cross-platform
 
-Проект использует build tags для условной компиляции платформо-специфичного кода:
+The project uses build tags for conditional compilation of platform-specific code:
 
-- `//go:build windows` - код для Windows
-- `//go:build darwin` - код для macOS
-- `//go:build linux` - код для Linux
+- `//go:build windows` - code for Windows
+- `//go:build darwin` - code for macOS
+- `//go:build linux` - code for Linux
 
-Платформо-специфичные функции вынесены в пакет `internal/platform`.
+Platform-specific functions are in the `internal/platform` package.
 
-## 🐛 Решение проблем
+## 🐛 Troubleshooting
 
-### Sing-box не запускается
+### Sing-box won't start
 
-1. Проверьте наличие файла `sing-box.exe` (или `sing-box`) в папке `bin/`
-2. Проверьте корректность `config.json`
-3. Посмотрите логи в папке `logs/`
+1. Check that `sing-box.exe` (or `sing-box`) file exists in the `bin/` folder
+2. Check `config.json` correctness
+3. Check logs in the `logs/` folder
 
-### Clash API не работает
+### Clash API not working
 
-1. Убедитесь, что в `config.json` включен `experimental.clash_api`
-2. Проверьте, что sing-box запущен
-3. Проверьте логи в `logs/api.log`
+1. Make sure `experimental.clash_api` is enabled in `config.json`
+2. Check that sing-box is running
+3. Check logs in `logs/api.log`
 
-### Проблемы с правами доступа (Linux/macOS)
+### Permission issues (Linux/macOS)
 
-На Linux/macOS может потребоваться запуск с правами администратора для создания TUN интерфейса:
+On Linux/macOS, administrator rights may be required to create TUN interface:
 
 ```bash
 sudo ./singbox-launcher
 ```
 
-Или настройте права через `setcap`:
+Or configure permissions via `setcap`:
 
 ```bash
 sudo setcap cap_net_admin+ep ./singbox-launcher
 ```
 
-## 🔨 Сборка из исходников
+## 🔨 Building from Source
 
-### Предварительные требования
+### Prerequisites
 
-- Go 1.24 или новее
+- Go 1.24 or newer
 - Git
-- Для Windows: [rsrc](https://github.com/akavel/rsrc) для встраивания иконок (опционально)
+- For Windows: [rsrc](https://github.com/akavel/rsrc) for embedding icons (optional)
 
 ### Windows
 
-**Требования:**
-- Go 1.24 или новее ([скачать](https://go.dev/dl/))
-- **Компилятор C (GCC)** - ОБЯЗАТЕЛЬНО! ([TDM-GCC](https://jmeubank.github.io/tdm-gcc/) или [MinGW-w64](https://www.mingw-w64.org/))
-- CGO (включен по умолчанию)
-- Опционально: `rsrc` для встраивания иконки (`go install github.com/akavel/rsrc@latest`)
+**Requirements:**
+- Go 1.24 or newer ([download](https://go.dev/dl/))
+- **C Compiler (GCC)** - REQUIRED! ([TDM-GCC](https://jmeubank.github.io/tdm-gcc/) or [MinGW-w64](https://www.mingw-w64.org/))
+- CGO (enabled by default)
+- Optional: `rsrc` for embedding icon (`go install github.com/akavel/rsrc@latest`)
 
-**⚠️ Важно:** Если видите ошибку `gcc: executable file not found`, установите GCC (см. [BUILD_WINDOWS.md](BUILD_WINDOWS.md) раздел "Решение проблем")
+**⚠️ Important:** If you see error `gcc: executable file not found`, install GCC (see [BUILD_WINDOWS.md](BUILD_WINDOWS.md) "Troubleshooting" section)
 
-**Сборка:**
+**Build:**
 
-1. Клонируйте репозиторий:
+1. Clone the repository:
 ```batch
 git clone https://github.com/Leadaxe/singbox-launcher.git
 cd singbox-launcher
 ```
 
-2. Запустите скрипт сборки:
+2. Run the build script:
 ```batch
 build\build_windows.bat
 ```
 
-Или вручную:
+Or manually:
 ```batch
 go mod tidy
-go build -ldflags="-H windowsgui -s -w" -o singbox-launcher.exe
+go build -buildvcs=false -ldflags="-H windowsgui -s -w" -o singbox-launcher.exe
 ```
 
-**Подробная инструкция:** См. [BUILD_WINDOWS.md](BUILD_WINDOWS.md)
+**Detailed instructions:** See [BUILD_WINDOWS.md](BUILD_WINDOWS.md)
 
 ### macOS
 
 ```bash
-# Клонируйте репозиторий
+# Clone the repository
 git clone https://github.com/Leadaxe/singbox-launcher.git
 cd singbox-launcher
 
-# Установите зависимости
+# Install dependencies
 go mod download
 
-# Соберите проект
+# Build the project
 chmod +x build/build_darwin.sh
 ./build/build_darwin.sh
 ```
 
-Или вручную:
+Or manually:
 ```bash
-GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o singbox-launcher
+GOOS=darwin GOARCH=amd64 go build -buildvcs=false -ldflags="-s -w" -o singbox-launcher
 ```
 
 ### Linux
 
 ```bash
-# Клонируйте репозиторий
+# Clone the repository
 git clone https://github.com/Leadaxe/singbox-launcher.git
 cd singbox-launcher
 
-# Установите зависимости
+# Install dependencies
 go mod download
 
-# Соберите проект
+# Build the project
 chmod +x build/build_linux.sh
 ./build/build_linux.sh
 ```
 
-Или вручную:
+Or manually:
 ```bash
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o singbox-launcher
+GOOS=linux GOARCH=amd64 go build -buildvcs=false -ldflags="-s -w" -o singbox-launcher
 ```
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-Мы приветствуем вклад в развитие проекта! Пожалуйста:
+We welcome contributions to the project! Please:
 
-1. Форкните репозиторий
-2. Создайте ветку для вашей функции (`git checkout -b feature/AmazingFeature`)
-3. Закоммитьте изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Запушьте в ветку (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
+1. Fork the repository
+2. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-### Стиль кода
+### Code Style
 
-- Следуйте стандартам Go: `gofmt`, `golint`
-- Добавляйте комментарии к публичным функциям
-- Пишите тесты для новой функциональности
+- Follow Go standards: `gofmt`, `golint`
+- Add comments to public functions
+- Write tests for new functionality
 
-## 📄 Лицензия
+## 📄 License
 
-Этот проект распространяется под лицензией MIT. См. файл [LICENSE](LICENSE) для подробностей.
+This project is distributed under the MIT license. See the [LICENSE](LICENSE) file for details.
 
-## 🙏 Благодарности
+## 🙏 Acknowledgments
 
-- [SagerNet/sing-box](https://github.com/SagerNet/sing-box) - за отличный прокси-клиент
-- [Fyne](https://fyne.io/) - за кроссплатформенный UI фреймворк
-- Всем контрибьюторам проекта
+- [SagerNet/sing-box](https://github.com/SagerNet/sing-box) - for excellent proxy client
+- [Fyne](https://fyne.io/) - for cross-platform UI framework
+- All project contributors
 
-## 📞 Поддержка
+## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/Leadaxe/singbox-launcher/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Leadaxe/singbox-launcher/discussions)
 
-## 🔮 Планы на будущее
+## 🔮 Future Plans
 
-- [ ] Автоматическое обновление приложения
-- [ ] Темная тема
-- [ ] Мультиязычность
-- [ ] Графики статистики трафика
-- [ ] Интеграция с другими VPN протоколами
+- [ ] Automatic application updates
+- [ ] Dark theme
+- [ ] Multi-language support
+- [ ] Traffic statistics graphs
+- [ ] Integration with other VPN protocols
 
 ---
 
-**Примечание**: Этот проект не связан с официальным проектом sing-box. Это независимая разработка для удобного управления sing-box.
-
+**Note**: This project is not affiliated with the official sing-box project. This is an independent development for convenient sing-box management.
