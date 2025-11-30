@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -36,6 +35,7 @@ const (
 	stabilityThreshold      = 180 * time.Second
 	gracefulShutdownTimeout = 2 * time.Second
 	processWaitTimeout      = 30 * time.Second // Timeout for process.Wait() to prevent hanging
+	maxLogFileSize          = 10 * 1024 * 1024 // 10 MB - maximum log file size before rotation
 )
 
 // AppController - the main structure encapsulating all application state and logic.
@@ -105,6 +105,34 @@ type RunningState struct {
 	controller *AppController
 }
 
+// checkAndRotateLogFile checks log file size and rotates if it exceeds maxLogFileSize
+func checkAndRotateLogFile(logPath string) {
+	info, err := os.Stat(logPath)
+	if err != nil {
+		return // File doesn't exist yet, nothing to rotate
+	}
+	
+	if info.Size() > maxLogFileSize {
+		// Rotate: rename current file to .old
+		oldPath := logPath + ".old"
+		_ = os.Remove(oldPath) // Remove old backup if exists
+		if err := os.Rename(logPath, oldPath); err != nil {
+			log.Printf("checkAndRotateLogFile: Failed to rotate log file %s: %v", logPath, err)
+		} else {
+			log.Printf("checkAndRotateLogFile: Rotated log file %s (size: %d bytes)", logPath, info.Size())
+		}
+	}
+}
+
+// openLogFileWithRotation opens a log file and rotates it if it exceeds maxLogFileSize
+func openLogFileWithRotation(logPath string) (*os.File, error) {
+	checkAndRotateLogFile(logPath)
+	
+	// Open file in append mode (not truncate) to preserve recent logs
+	// But if file was rotated, it will be a new file
+	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+}
+
 // NewAppController creates and initializes a new AppController instance.
 func NewAppController(appIconData, greyIconData, greenIconData []byte) (*AppController, error) {
 	ac := &AppController{}
@@ -125,14 +153,16 @@ func NewAppController(appIconData, greyIconData, greenIconData []byte) (*AppCont
 	ac.SingboxPath = filepath.Join(ac.ExecDir, "bin", singboxName)
 	ac.ParserPath = filepath.Join(ac.ExecDir, "bin", parserName)
 	ac.WintunPath = platform.GetWintunPath(ac.ExecDir)
-	logFile, err := os.OpenFile(filepath.Join(ac.ExecDir, logFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	
+	// Open log files with rotation support
+	logFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, logFileName))
 	if err != nil {
 		return nil, fmt.Errorf("NewAppController: cannot open main log file: %w", err)
 	}
 	log.SetOutput(logFile)
 	ac.MainLogFile = logFile
 
-	childLogFile, err := os.OpenFile(filepath.Join(ac.ExecDir, childLogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	childLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, childLogFileName))
 	if err != nil {
 		log.Printf("NewAppController: failed to open sing-box child log file: %v", err)
 		ac.ChildLogFile = nil
@@ -140,7 +170,7 @@ func NewAppController(appIconData, greyIconData, greenIconData []byte) (*AppCont
 		ac.ChildLogFile = childLogFile
 	}
 
-	apiLogFile, err := os.OpenFile(filepath.Join(ac.ExecDir, apiLogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	apiLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, apiLogFileName))
 	if err != nil {
 		log.Printf("NewAppController: failed to open API log file: %v", err)
 		ac.ApiLogFile = nil
@@ -283,12 +313,14 @@ func (ac *AppController) RunHidden(name string, args []string, logPath string, d
 
 	if logPath != "" {
 		if logPath == filepath.Join(ac.ExecDir, childLogFileName) && ac.ChildLogFile != nil {
+			// For sing-box logs, check and rotate if needed before writing
+			checkAndRotateLogFile(logPath)
 			logFile := ac.ChildLogFile
-			logFile.Seek(0, io.SeekStart)
-			logFile.Truncate(0)
+			// Don't truncate - append to preserve logs, rotation handles size limits
 			cmd.Stdout = logFile
 			cmd.Stderr = logFile
 		} else {
+			// For other logs (parser), use truncate mode for clean start
 			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 			if err != nil {
 				return fmt.Errorf("RunHidden: cannot open log file '%s': %w", logPath, err)
@@ -426,6 +458,12 @@ func StartSingBoxProcess(ac *AppController) {
 	platform.PrepareCommand(ac.SingboxCmd)
 	ac.SingboxCmd.Dir = platform.GetBinDir(ac.ExecDir)
 	if ac.ChildLogFile != nil {
+		// Check and rotate log file before starting new process to prevent unbounded growth
+		checkAndRotateLogFile(filepath.Join(ac.ExecDir, childLogFileName))
+		
+		// Write directly to file - no buffering in memory
+		// This prevents memory leaks from accumulating log output
+		// Logs are written immediately to disk, not stored in memory
 		ac.SingboxCmd.Stdout = ac.ChildLogFile
 		ac.SingboxCmd.Stderr = ac.ChildLogFile
 	} else {
