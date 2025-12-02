@@ -20,8 +20,7 @@ type CoreDashboardTab struct {
 	controller *core.AppController
 
 	// UI элементы
-	statusEmojiLabel        *widget.Label // Эмодзи статуса (отдельно для выравнивания)
-	statusLabel             *widget.Label // Текст статуса (без эмодзи)
+	statusLabel             *widget.Label // Полный статус: "Core Status" + иконка + текст
 	versionLabel            *widget.Label
 	versionButton           *widget.Button // Кликабельная версия (только Windows)
 	downloadButton          *widget.Button
@@ -101,16 +100,8 @@ func CreateCoreDashboardTab(ac *core.AppController) fyne.CanvasObject {
 
 // createStatusRow создает строку со статусом и кнопками
 func (tab *CoreDashboardTab) createStatusRow() fyne.CanvasObject {
-	statusTitle := widget.NewLabel("Core Status")
-	statusTitle.Importance = widget.MediumImportance
-	statusTitle.Alignment = fyne.TextAlignLeading // Выравнивание текста
-
-	// Отдельный label для эмодзи (для правильного выравнивания)
-	tab.statusEmojiLabel = widget.NewLabel("")
-	tab.statusEmojiLabel.Wrapping = fyne.TextWrapOff
-	tab.statusEmojiLabel.Alignment = fyne.TextAlignLeading
-
-	tab.statusLabel = widget.NewLabel("Checking...")
+	// Объединяем все в один label: "Core Status" + иконка + текст статуса
+	tab.statusLabel = widget.NewLabel("Core Status Checking...")
 	tab.statusLabel.Wrapping = fyne.TextWrapOff       // Отключаем перенос текста
 	tab.statusLabel.Alignment = fyne.TextAlignLeading // Выравнивание текста
 	tab.statusLabel.Importance = widget.MediumImportance
@@ -129,11 +120,9 @@ func (tab *CoreDashboardTab) createStatusRow() fyne.CanvasObject {
 	tab.startButton = startButton
 	tab.stopButton = stopButton
 
-	// Статус в одну строку: иконка (без отступов), заголовок, текст статуса
+	// Статус в одну строку - все в одном label
 	statusContainer := container.NewHBox(
-		tab.statusEmojiLabel, // Иконка перед "Core Status" без отступов
-		statusTitle,          // "Core Status"
-		tab.statusLabel,      // Текст статуса
+		tab.statusLabel, // "Core Status" + иконка + текст статуса
 	)
 
 	// Кнопки на новой строке по центру
@@ -219,8 +208,7 @@ func (tab *CoreDashboardTab) createVersionBlock() fyne.CanvasObject {
 func (tab *CoreDashboardTab) updateBinaryStatus() {
 	// Проверяем, существует ли бинарник
 	if _, err := tab.controller.GetInstalledCoreVersion(); err != nil {
-		tab.statusEmojiLabel.SetText("❌")
-		tab.statusLabel.SetText("Error: sing-box not found")
+		tab.statusLabel.SetText("Core Status ❌ Error: sing-box not found")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 		// Обновляем иконку трея (красная при ошибке)
 		tab.controller.UpdateUI()
@@ -236,8 +224,7 @@ func (tab *CoreDashboardTab) updateBinaryStatus() {
 func (tab *CoreDashboardTab) updateRunningStatus() {
 	// Проверяем, существует ли бинарник (если нет - показываем ошибку)
 	if _, err := tab.controller.GetInstalledCoreVersion(); err != nil {
-		tab.statusEmojiLabel.SetText("❌")
-		tab.statusLabel.SetText("Error: sing-box not found")
+		tab.statusLabel.SetText("Core Status ❌ Error: sing-box not found")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 		// Блокируем кнопки если бинарника нет
 		if tab.startButton != nil {
@@ -251,8 +238,7 @@ func (tab *CoreDashboardTab) updateRunningStatus() {
 
 	// Обновляем статус на основе RunningState
 	if tab.controller.RunningState.IsRunning() {
-		tab.statusEmojiLabel.SetText("✅")
-		tab.statusLabel.SetText("Running")
+		tab.statusLabel.SetText("Core Status ✅ Running")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 		// Блокируем Start, разблокируем Stop
 		if tab.startButton != nil {
@@ -262,8 +248,7 @@ func (tab *CoreDashboardTab) updateRunningStatus() {
 			tab.stopButton.Enable()
 		}
 	} else {
-		tab.statusEmojiLabel.SetText("⏸️")
-		tab.statusLabel.SetText("Stopped")
+		tab.statusLabel.SetText("Core Status ⏸️ Stopped")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 		// Блокируем Stop, разблокируем Start
 		if tab.startButton != nil {
