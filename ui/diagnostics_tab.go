@@ -76,8 +76,8 @@ func checkSTUN(serverAddr string) (string, error) {
 
 // CreateDiagnosticsTab creates and returns the content for the "Diagnostics" tab.
 func CreateDiagnosticsTab(ac *core.AppController) fyne.CanvasObject {
-	// Кнопка для проверки STUN
-	stunButton := widget.NewButton("Check STUN", func() {
+	// Кнопка для проверки STUN (Google STUN [UDP])
+	stunButton := widget.NewButton("Google STUN [UDP]", func() {
 		// Показываем диалог ожидания
 		waitDialog := dialog.NewCustomWithoutButtons("STUN Check", widget.NewLabel("Checking, please wait..."), ac.MainWindow)
 		waitDialog.Show()
@@ -119,9 +119,9 @@ func CreateDiagnosticsTab(ac *core.AppController) fyne.CanvasObject {
 
 	return container.NewVBox(
 		widget.NewLabel("Diagnostics"),
-		stunButton,
 		widget.NewSeparator(),
 		widget.NewLabel("IP Check Services:"),
+		stunButton, // Google STUN [UDP] перенесен в секцию IP Check Services
 		openBrowserButton("2ip.ru", "https://2ip.ru"),
 		openBrowserButton("2ip.io", "https://2ip.io"),
 		openBrowserButton("2ip.me", "https://2ip.me"),
