@@ -32,7 +32,13 @@ func CreateClashAPITab(ac *core.AppController) fyne.CanvasObject {
 	if selectedGroup == "" {
 		selectedGroup = selectorOptions[0]
 	}
-	ac.SelectedClashGroup = selectedGroup
+	// Only set SelectedClashGroup if it's not already set (to preserve value from initialization)
+	if ac.SelectedClashGroup == "" {
+		ac.SelectedClashGroup = selectedGroup
+	} else {
+		// Use existing value, but update selectedGroup variable for UI
+		selectedGroup = ac.SelectedClashGroup
+	}
 
 	var (
 		groupSelect            *widget.Select
@@ -76,6 +82,11 @@ func CreateClashAPITab(ac *core.AppController) fyne.CanvasObject {
 
 				if ac.ListStatusLabel != nil {
 					ac.ListStatusLabel.SetText(fmt.Sprintf("Proxies loaded for '%s'. Active: %s", group, now))
+				}
+
+				// Update tray menu with new proxy list
+				if ac.UpdateTrayMenuFunc != nil {
+					ac.UpdateTrayMenuFunc()
 				}
 			})
 		}(group)
@@ -261,6 +272,12 @@ func CreateClashAPITab(ac *core.AppController) fyne.CanvasObject {
 			return
 		}
 		status.SetText(fmt.Sprintf("Selected group '%s'.", value))
+		// Update tray menu when group changes
+		if ac.UpdateTrayMenuFunc != nil {
+			ac.UpdateTrayMenuFunc()
+		}
+		// Start auto-loading proxies for the new group
+		ac.AutoLoadProxies()
 		onLoadAndRefreshProxies()
 	})
 	groupSelect.PlaceHolder = "Select selector group"

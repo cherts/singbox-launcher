@@ -45,15 +45,20 @@ func main() {
 					desk.SetSystemTrayIcon(controller.GreyIconData)
 				})
 			}()
-			// Create the menu for the system tray.
-			desk.SetSystemTrayMenu(fyne.NewMenu("Singbox Launcher",
-				fyne.NewMenuItem("Open", func() { controller.MainWindow.Show() }),
-				fyne.NewMenuItemSeparator(),
-				fyne.NewMenuItem("Start VPN", controller.StartSingBox),
-				fyne.NewMenuItem("Stop VPN", controller.StopSingBox),
-				fyne.NewMenuItemSeparator(),
-				fyne.NewMenuItem("Quit", controller.GracefulExit),
-			))
+			// Create the menu for the system tray with proxy selection submenu
+			updateTrayMenu := func() {
+				fyne.Do(func() {
+					menu := controller.CreateTrayMenu()
+					desk.SetSystemTrayMenu(menu)
+				})
+			}
+			controller.UpdateTrayMenuFunc = updateTrayMenu
+
+			// Set initial menu
+			updateTrayMenu()
+
+			// Start auto-loading proxies after tray initialization
+			controller.AutoLoadProxies()
 		})
 	}
 
@@ -74,6 +79,17 @@ func main() {
 	})
 
 	controller.UpdateUI()
+
+	// Ensure tray menu is created and displayed after window is ready
+	// This ensures menu is properly initialized even if SetOnStarted hasn't fired yet
+	go func() {
+		time.Sleep(200 * time.Millisecond) // Small delay to ensure callback is set
+		fyne.Do(func() {
+			if controller.UpdateTrayMenuFunc != nil {
+				controller.UpdateTrayMenuFunc()
+			}
+		})
+	}()
 
 	// Check if config.json exists and show a warning if it doesn't
 	core.CheckConfigFileExists(controller)

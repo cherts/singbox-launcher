@@ -89,11 +89,14 @@ type AppController struct {
 	ClashAPIToken      string
 	ClashAPIEnabled    bool
 	SelectedClashGroup string
+	AutoLoadInProgress bool       // Flag to prevent multiple auto-load attempts
+	AutoLoadMutex      sync.Mutex // Mutex for AutoLoadInProgress
 
 	// --- Callbacks for UI logic ---
 	RefreshAPIFunc       func()
 	ResetAPIStateFunc    func()
 	UpdateCoreStatusFunc func() // Callback для обновления статуса в Core Dashboard
+	UpdateTrayMenuFunc   func() // Callback для обновления меню трея
 }
 
 // RunningState - structure for tracking the VPN's running state.
@@ -199,6 +202,18 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 		ac.ClashAPIEnabled = true
 	}
 
+	// Initialize SelectedClashGroup from config (needed for auto-loading proxies)
+	if ac.ClashAPIEnabled {
+		_, defaultSelector, err := GetSelectorGroupsFromConfig(ac.ConfigPath)
+		if err != nil {
+			log.Printf("NewAppController: Failed to get selector groups: %v", err)
+			ac.SelectedClashGroup = "proxy-out" // Default fallback
+		} else {
+			ac.SelectedClashGroup = defaultSelector
+			log.Printf("NewAppController: Initialized SelectedClashGroup: %s", defaultSelector)
+		}
+	}
+
 	// Initialize API state fields (safe during initialization, but using methods for consistency)
 	ac.SetProxiesList([]api.ProxyInfo{})
 	ac.SetSelectedIndex(-1)
@@ -207,6 +222,7 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 	ac.RefreshAPIFunc = func() { log.Println("RefreshAPIFunc handler is not set yet.") }
 	ac.ResetAPIStateFunc = func() { log.Println("ResetAPIStateFunc handler is not set yet.") }
 	ac.UpdateCoreStatusFunc = func() { log.Println("UpdateCoreStatusFunc handler is not set yet.") }
+	ac.UpdateTrayMenuFunc = func() { log.Println("UpdateTrayMenuFunc handler is not set yet.") }
 
 	return ac, nil
 }
@@ -820,4 +836,193 @@ func ShowAutoHideInfoUtil(ac *AppController, title, message string) {
 			fyne.Do(func() { d.Hide() })
 		}()
 	})
+}
+
+// AutoLoadProxies attempts to load proxies with retry intervals (1, 3, 7, 13, 17 seconds)
+func (ac *AppController) AutoLoadProxies() {
+	// Check if already in progress
+	ac.AutoLoadMutex.Lock()
+	if ac.AutoLoadInProgress {
+		ac.AutoLoadMutex.Unlock()
+		log.Printf("AutoLoadProxies: Already in progress, skipping")
+		return
+	}
+	ac.AutoLoadInProgress = true
+	ac.AutoLoadMutex.Unlock()
+
+	if !ac.ClashAPIEnabled {
+		ac.AutoLoadMutex.Lock()
+		ac.AutoLoadInProgress = false
+		ac.AutoLoadMutex.Unlock()
+		log.Printf("AutoLoadProxies: Clash API is disabled, skipping")
+		return
+	}
+
+	ac.APIStateMutex.RLock()
+	selectedGroup := ac.SelectedClashGroup
+	ac.APIStateMutex.RUnlock()
+
+	if selectedGroup == "" {
+		ac.AutoLoadMutex.Lock()
+		ac.AutoLoadInProgress = false
+		ac.AutoLoadMutex.Unlock()
+		log.Printf("AutoLoadProxies: No group selected, skipping")
+		return
+	}
+
+	// Retry intervals: 1, 3, 7, 13, 17 seconds
+	intervals := []time.Duration{1, 3, 7, 13, 17}
+
+	go func() {
+		for attempt, interval := range intervals {
+			// Wait for the interval (except first attempt)
+			if attempt > 0 {
+				time.Sleep(interval * time.Second)
+			}
+
+			log.Printf("AutoLoadProxies: Attempt %d/%d to load proxies for group '%s'", attempt+1, len(intervals), selectedGroup)
+
+			// Get current group (it might have changed)
+			ac.APIStateMutex.RLock()
+			currentGroup := ac.SelectedClashGroup
+			baseURL := ac.ClashAPIBaseURL
+			token := ac.ClashAPIToken
+			ac.APIStateMutex.RUnlock()
+
+			if currentGroup == "" {
+				log.Printf("AutoLoadProxies: Group cleared, stopping attempts")
+				return
+			}
+
+			// Try to load proxies
+			proxies, now, err := api.GetProxiesInGroup(baseURL, token, currentGroup, ac.ApiLogFile)
+			if err != nil {
+				log.Printf("AutoLoadProxies: Attempt %d failed: %v", attempt+1, err)
+				// Continue to next attempt
+				continue
+			}
+
+			// Success - update proxies list
+			fyne.Do(func() {
+				ac.SetProxiesList(proxies)
+				ac.SetActiveProxyName(now)
+
+				// Update tray menu
+				if ac.UpdateTrayMenuFunc != nil {
+					ac.UpdateTrayMenuFunc()
+				}
+
+				// Update UI if callbacks are set
+				if ac.ProxiesListWidget != nil {
+					ac.ProxiesListWidget.Refresh()
+				}
+				if ac.ListStatusLabel != nil {
+					ac.ListStatusLabel.SetText(fmt.Sprintf("Proxies loaded for '%s'. Active: %s", currentGroup, now))
+				}
+				if ac.RefreshAPIFunc != nil {
+					ac.RefreshAPIFunc()
+				}
+			})
+
+			log.Printf("AutoLoadProxies: Successfully loaded %d proxies for group '%s' on attempt %d", len(proxies), currentGroup, attempt+1)
+
+			ac.AutoLoadMutex.Lock()
+			ac.AutoLoadInProgress = false
+			ac.AutoLoadMutex.Unlock()
+			return // Success, stop retrying
+		}
+
+		log.Printf("AutoLoadProxies: All %d attempts failed", len(intervals))
+		ac.AutoLoadMutex.Lock()
+		ac.AutoLoadInProgress = false
+		ac.AutoLoadMutex.Unlock()
+	}()
+}
+
+// CreateTrayMenu creates the system tray menu with proxy selection submenu
+func (ac *AppController) CreateTrayMenu() *fyne.Menu {
+	// Get proxies from current group
+	ac.APIStateMutex.RLock()
+	proxies := ac.ProxiesList
+	activeProxy := ac.ActiveProxyName
+	selectedGroup := ac.SelectedClashGroup
+	clashAPIEnabled := ac.ClashAPIEnabled
+	ac.APIStateMutex.RUnlock()
+
+	// Auto-load proxies if list is empty and API is enabled
+	if clashAPIEnabled && selectedGroup != "" && len(proxies) == 0 {
+		ac.AutoLoadProxies()
+	}
+
+	// Create proxy submenu items
+	var proxyMenuItems []*fyne.MenuItem
+	if clashAPIEnabled && selectedGroup != "" && len(proxies) > 0 {
+		for i := range proxies {
+			proxy := proxies[i]
+			proxyName := proxy.Name
+			isActive := proxyName == activeProxy
+
+			// Create local copy for closure
+			pName := proxyName
+			menuItem := fyne.NewMenuItem(proxyName, func() {
+				// Switch to selected proxy
+				go func() {
+					err := api.SwitchProxy(ac.ClashAPIBaseURL, ac.ClashAPIToken, selectedGroup, pName, ac.ApiLogFile)
+					fyne.Do(func() {
+						if err != nil {
+							log.Printf("CreateTrayMenu: Failed to switch proxy: %v", err)
+							ac.ShowErrorDialog(fmt.Errorf("failed to switch proxy: %w", err))
+						} else {
+							ac.SetActiveProxyName(pName)
+							// Update tray menu after switch
+							if ac.UpdateTrayMenuFunc != nil {
+								ac.UpdateTrayMenuFunc()
+							}
+							// Refresh UI if callback is set
+							if ac.RefreshAPIFunc != nil {
+								ac.RefreshAPIFunc()
+							}
+						}
+					})
+				}()
+			})
+
+			// Mark active proxy with checkmark
+			if isActive {
+				menuItem.Label = "✓ " + proxyName
+			}
+
+			proxyMenuItems = append(proxyMenuItems, menuItem)
+		}
+	} else {
+		// Show disabled item if no proxies available
+		disabledItem := fyne.NewMenuItem("No proxies available", nil)
+		disabledItem.Disabled = true
+		proxyMenuItems = append(proxyMenuItems, disabledItem)
+	}
+
+	// Create proxy submenu
+	proxySubmenu := fyne.NewMenu("Select Proxy", proxyMenuItems...)
+
+	// Create main menu items
+	menuItems := []*fyne.MenuItem{
+		fyne.NewMenuItem("Open", func() { ac.MainWindow.Show() }),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Start VPN", ac.StartSingBox),
+		fyne.NewMenuItem("Stop VPN", ac.StopSingBox),
+		fyne.NewMenuItemSeparator(),
+	}
+
+	// Add proxy submenu if Clash API is enabled
+	if clashAPIEnabled && selectedGroup != "" {
+		selectProxyItem := fyne.NewMenuItem("Select Proxy", nil)
+		selectProxyItem.ChildMenu = proxySubmenu
+		menuItems = append(menuItems, selectProxyItem)
+		menuItems = append(menuItems, fyne.NewMenuItemSeparator())
+	}
+
+	// Add Quit item
+	menuItems = append(menuItems, fyne.NewMenuItem("Quit", ac.GracefulExit))
+
+	return fyne.NewMenu("Singbox Launcher", menuItems...)
 }
