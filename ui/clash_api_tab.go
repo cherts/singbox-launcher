@@ -126,6 +126,10 @@ func CreateClashAPITab(ac *core.AppController) fyne.CanvasObject {
 		if ac.ProxiesListWidget != nil {
 			ac.ProxiesListWidget.Refresh()
 		}
+		// Update tray menu when API state is reset
+		if ac.UpdateTrayMenuFunc != nil {
+			ac.UpdateTrayMenuFunc()
+		}
 	}
 
 	// --- Регистрация колбэков в контроллере ---

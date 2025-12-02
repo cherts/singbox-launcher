@@ -27,7 +27,7 @@ var greenIconData []byte // Icon for "on" state
 // main is the application's entry point. It simply creates and runs the AppController.
 func main() {
 	// Create the application controller. If an error occurs, print it and exit the program.
-	// Используем greyIconData для красной иконки (пока нет отдельной красной иконки)
+	// Use greyIconData for red icon (no separate red icon yet)
 	controller, err := core.NewAppController(appIconData, greyIconData, greenIconData, greyIconData)
 	if err != nil {
 		log.Fatalf("Failed to initialize application: %v", err)

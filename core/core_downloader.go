@@ -40,13 +40,13 @@ type DownloadProgress struct {
 	Error    error
 }
 
-// DownloadCore скачивает и устанавливает sing-box
-func (ac *AppController) DownloadCore(version string, progressChan chan DownloadProgress) {
+// DownloadCore downloads and installs sing-box
+func (ac *AppController) DownloadCore(ctx context.Context, version string, progressChan chan DownloadProgress) {
 	defer close(progressChan)
 
-	// 1. Получаем информацию о релизе
+	// 1. Get release information
 	progressChan <- DownloadProgress{Progress: 5, Message: "Getting release information...", Status: "downloading"}
-	release, err := ac.getReleaseInfo(version)
+	release, err := ac.getReleaseInfo(ctx, version)
 	if err != nil {
 		progressChan <- DownloadProgress{Progress: 0, Message: fmt.Sprintf("Failed to get release info: %v", err), Status: "error", Error: err}
 		return
@@ -68,10 +68,10 @@ func (ac *AppController) DownloadCore(version string, progressChan chan Download
 	}
 	defer os.RemoveAll(tempDir) // Удаляем временную директорию после завершения
 
-	// 4. Скачиваем архив
+	// 4. Download archive
 	archivePath := filepath.Join(tempDir, asset.Name)
 	progressChan <- DownloadProgress{Progress: 15, Message: fmt.Sprintf("Downloading %s...", asset.Name), Status: "downloading"}
-	if err := ac.downloadFile(asset.BrowserDownloadURL, archivePath, progressChan); err != nil {
+	if err := ac.downloadFile(ctx, asset.BrowserDownloadURL, archivePath, progressChan); err != nil {
 		progressChan <- DownloadProgress{Progress: 0, Message: fmt.Sprintf("Download failed: %v", err), Status: "error", Error: err}
 		return
 	}
@@ -95,30 +95,26 @@ func (ac *AppController) DownloadCore(version string, progressChan chan Download
 	progressChan <- DownloadProgress{Progress: 100, Message: fmt.Sprintf("sing-box v%s installed successfully!", version), Status: "done"}
 }
 
-// getReleaseInfo получает информацию о релизе с GitHub (с fallback на SourceForge)
-func (ac *AppController) getReleaseInfo(version string) (*ReleaseInfo, error) {
-	// Сначала пробуем GitHub API
-	release, err := ac.getReleaseInfoFromGitHub(version)
+// getReleaseInfo gets release information from GitHub (with SourceForge fallback)
+func (ac *AppController) getReleaseInfo(ctx context.Context, version string) (*ReleaseInfo, error) {
+	// Try GitHub API first
+	release, err := ac.getReleaseInfoFromGitHub(ctx, version)
 	if err == nil {
 		return release, nil
 	}
 
 	log.Printf("GitHub failed, trying SourceForge...")
 
-	// Если GitHub не работает, пробуем SourceForge
-	return ac.getReleaseInfoFromSourceForge(version)
+	// If GitHub doesn't work, try SourceForge
+	return ac.getReleaseInfoFromSourceForge(ctx, version)
 }
 
-// getReleaseInfoFromGitHub получает информацию о релизе с GitHub
-func (ac *AppController) getReleaseInfoFromGitHub(version string) (*ReleaseInfo, error) {
+// getReleaseInfoFromGitHub gets release information from GitHub
+func (ac *AppController) getReleaseInfoFromGitHub(ctx context.Context, version string) (*ReleaseInfo, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/SagerNet/sing-box/releases/tags/v%s", version)
 	if version == "" {
 		url = "https://api.github.com/repos/SagerNet/sing-box/releases/latest"
 	}
-
-	// Создаем контекст с таймаутом
-	ctx, cancel := context.WithTimeout(context.Background(), NetworkRequestTimeout)
-	defer cancel()
 
 	// Используем универсальный HTTP клиент
 	client := createHTTPClient(NetworkRequestTimeout)
@@ -158,8 +154,8 @@ func (ac *AppController) getReleaseInfoFromGitHub(version string) (*ReleaseInfo,
 	return &release, nil
 }
 
-// getReleaseInfoFromSourceForge создает ReleaseInfo на основе SourceForge (строим прямые ссылки)
-func (ac *AppController) getReleaseInfoFromSourceForge(version string) (*ReleaseInfo, error) {
+// getReleaseInfoFromSourceForge creates ReleaseInfo based on SourceForge (builds direct links)
+func (ac *AppController) getReleaseInfoFromSourceForge(ctx context.Context, version string) (*ReleaseInfo, error) {
 	if version == "" {
 		// Если версия не указана, пытаемся получить последнюю с GitHub
 		// Если не получилось, используем фиксированную версию
@@ -270,10 +266,10 @@ func (ac *AppController) findPlatformAsset(assets []Asset) (*Asset, error) {
 	return nil, fmt.Errorf("asset not found for platform %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 
-// downloadFile скачивает файл с отслеживанием прогресса (с fallback на SourceForge)
-func (ac *AppController) downloadFile(url, destPath string, progressChan chan DownloadProgress) error {
-	// Пробуем скачать с оригинального URL
-	err := ac.downloadFileFromURL(url, destPath, progressChan)
+// downloadFile downloads a file with progress tracking (with SourceForge fallback)
+func (ac *AppController) downloadFile(ctx context.Context, url, destPath string, progressChan chan DownloadProgress) error {
+	// Try to download from original URL
+	err := ac.downloadFileFromURL(ctx, url, destPath, progressChan)
 	if err == nil {
 		return nil
 	}
@@ -287,7 +283,7 @@ func (ac *AppController) downloadFile(url, destPath string, progressChan chan Do
 
 	for _, mirrorURL := range mirrors {
 		log.Printf("Trying mirror: %s", mirrorURL)
-		err := ac.downloadFileFromURL(mirrorURL, destPath, progressChan)
+		err := ac.downloadFileFromURL(ctx, mirrorURL, destPath, progressChan)
 		if err == nil {
 			return nil
 		}
@@ -301,7 +297,7 @@ func (ac *AppController) downloadFile(url, destPath string, progressChan chan Do
 		version, fileName := ac.extractVersionAndFileName(url)
 		if version != "" && fileName != "" {
 			sourceForgeURL := fmt.Sprintf("https://sourceforge.net/projects/sing-box.mirror/files/v%s/%s/download", version, fileName)
-			err := ac.downloadFileFromURL(sourceForgeURL, destPath, progressChan)
+			err := ac.downloadFileFromURL(ctx, sourceForgeURL, destPath, progressChan)
 			if err == nil {
 				return nil
 			}
@@ -312,14 +308,17 @@ func (ac *AppController) downloadFile(url, destPath string, progressChan chan Do
 	return fmt.Errorf("all download sources failed, last error: %w", err)
 }
 
-// downloadFileFromURL скачивает файл по конкретному URL
-func (ac *AppController) downloadFileFromURL(url, destPath string, progressChan chan DownloadProgress) error {
-	// Для скачивания используем больший таймаут
+// downloadFileFromURL downloads a file from a specific URL
+func (ac *AppController) downloadFileFromURL(ctx context.Context, url, destPath string, progressChan chan DownloadProgress) error {
+	// Use parent context timeout or create one with default timeout
 	downloadTimeout := 5 * time.Minute
-	ctx, cancel := context.WithTimeout(context.Background(), downloadTimeout)
-	defer cancel()
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, downloadTimeout)
+		defer cancel()
+	}
 
-	// Используем клиент с большим таймаутом для скачивания
+	// Use client with large timeout for download
 	client := createHTTPClient(downloadTimeout)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -352,9 +351,16 @@ func (ac *AppController) downloadFileFromURL(url, destPath string, progressChan 
 	totalSize := resp.ContentLength
 	var downloaded int64
 
-	// Скачиваем с отслеживанием прогресса
-	buf := make([]byte, 32*1024) // 32KB буфер
+	// Download with progress tracking
+	buf := make([]byte, 32*1024) // 32KB buffer
 	for {
+		// Check if context is cancelled
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("download cancelled: %w", ctx.Err())
+		default:
+		}
+
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			written, writeErr := file.Write(buf[:n])
@@ -363,7 +369,7 @@ func (ac *AppController) downloadFileFromURL(url, destPath string, progressChan 
 			}
 			downloaded += int64(written)
 
-			// Обновляем прогресс (15-80%)
+			// Update progress (15-80%)
 			if totalSize > 0 {
 				progress := 15 + int(float64(downloaded)/float64(totalSize)*65)
 				progressChan <- DownloadProgress{
@@ -516,16 +522,16 @@ func (ac *AppController) installBinary(sourcePath, destPath string) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	// Если старый бинарник существует, переименовываем его
+	// If old binary exists, rename it
 	if _, err := os.Stat(destPath); err == nil {
 		oldPath := destPath + ".old"
-		os.Remove(oldPath) // Удаляем старый backup если есть
+		os.Remove(oldPath) // Remove old backup if exists
 		if err := os.Rename(destPath, oldPath); err != nil {
 			log.Printf("Warning: failed to rename old binary: %v", err)
 		}
 	}
 
-	// Копируем новый бинарник
+	// Copy new binary
 	sourceFile, err := os.Open(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
@@ -543,12 +549,12 @@ func (ac *AppController) installBinary(sourcePath, destPath string) error {
 		return fmt.Errorf("failed to copy file: %w", err)
 	}
 
-	// Устанавливаем права на выполнение (для Unix)
+	// Set execute permissions (for Unix)
 	if runtime.GOOS != "windows" {
 		os.Chmod(destPath, 0755)
 	}
 
-	// Удаляем старый backup
+	// Remove old backup
 	oldPath := destPath + ".old"
 	os.Remove(oldPath)
 

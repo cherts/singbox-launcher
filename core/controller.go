@@ -22,6 +22,7 @@ import (
 
 	"singbox-launcher/api"
 	"singbox-launcher/internal/constants"
+	"singbox-launcher/internal/dialogs"
 	"singbox-launcher/internal/platform"
 
 	ps "github.com/mitchellh/go-ps"
@@ -59,7 +60,7 @@ type AppController struct {
 	AppIconData   fyne.Resource
 	GreenIconData fyne.Resource
 	GreyIconData  fyne.Resource
-	RedIconData   fyne.Resource // Иконка для состояния ошибки
+	RedIconData   fyne.Resource // Icon for error state
 
 	// --- Process State ---
 	SingboxCmd               *exec.Cmd
@@ -96,13 +97,13 @@ type AppController struct {
 	// --- Callbacks for UI logic ---
 	RefreshAPIFunc       func()
 	ResetAPIStateFunc    func()
-	UpdateCoreStatusFunc func() // Callback для обновления статуса в Core Dashboard
-	UpdateTrayMenuFunc   func() // Callback для обновления меню трея
+	UpdateCoreStatusFunc func() // Callback to update status in Core Dashboard
+	UpdateTrayMenuFunc   func() // Callback to update tray menu
 
 	// --- Parser progress UI ---
 	ParserProgressBar        *widget.ProgressBar
 	ParserStatusLabel        *widget.Label
-	UpdateParserProgressFunc func(progress float64, status string) // Callback для обновления прогресса парсера
+	UpdateParserProgressFunc func(progress float64, status string) // Callback to update parser progress
 }
 
 // RunningState - structure for tracking the VPN's running state.
@@ -239,9 +240,9 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 // UpdateUI updates all UI elements based on the current application state.
 func (ac *AppController) UpdateUI() {
 	fyne.Do(func() {
-		// Обновляем иконку трея (это системная функция, не UI виджет)
+		// Update tray icon (this is a system function, not a UI widget)
 		if desk, ok := ac.Application.(desktop.App); ok {
-			// Проверяем, что иконки инициализированы
+			// Check that icons are initialized
 			if ac.GreenIconData == nil || ac.GreyIconData == nil || ac.RedIconData == nil {
 				log.Printf("UpdateUI: Icons not initialized, skipping icon update")
 				return
@@ -250,22 +251,20 @@ func (ac *AppController) UpdateUI() {
 			var iconToSet fyne.Resource
 
 			if ac.RunningState.IsRunning() {
-				// Зеленая иконка - если запущен
+				// Green icon - if running
 				iconToSet = ac.GreenIconData
 			} else {
-				// Проверяем наличие бинарника для определения ошибки (простая проверка файла)
+				// Check for binary to determine error state (simple file check)
 				if _, err := os.Stat(ac.SingboxPath); os.IsNotExist(err) {
-					// Красная иконка - при ошибке (бинарник не найден)
+					// Red icon - on error (binary not found)
 					iconToSet = ac.RedIconData
 				} else {
-					// Черная иконка - при штатной остановке
+					// Grey icon - on normal stop
 					iconToSet = ac.GreyIconData
 				}
 			}
 
-			if iconToSet != nil {
-				desk.SetSystemTrayIcon(iconToSet)
-			}
+			desk.SetSystemTrayIcon(iconToSet)
 		}
 
 		// Если состояние Down, сбрасываем API состояние
@@ -273,12 +272,17 @@ func (ac *AppController) UpdateUI() {
 			log.Println("UpdateUI: Triggering API state reset because state is 'Down'.")
 			ac.ResetAPIStateFunc()
 		}
+
+		// Update tray menu when state changes (same as Core Dashboard)
+		if ac.UpdateTrayMenuFunc != nil {
+			ac.UpdateTrayMenuFunc()
+		}
 	})
 }
 
 // GracefulExit performs a graceful shutdown of the application.
 func (ac *AppController) GracefulExit() {
-	ac.StopSingBox()
+	StopSingBoxProcess(ac)
 
 	log.Println("GracefulExit: Waiting for sing-box to stop...")
 	timeout := time.After(gracefulShutdownTimeout)
@@ -315,21 +319,6 @@ end_loop:
 	ac.Application.Quit()
 }
 
-// StartSingBox launches the sing-box process.
-func (ac *AppController) StartSingBox() {
-	StartSingBoxProcess(ac)
-}
-
-// StopSingBox stops the sing-box process.
-func (ac *AppController) StopSingBox() {
-	StopSingBoxProcess(ac)
-}
-
-// RunParser launches the parser process.
-func (ac *AppController) RunParser() {
-	RunParserProcess(ac)
-}
-
 // RunHidden launches an external command in a hidden window.
 func (ac *AppController) RunHidden(name string, args []string, logPath string, dir string) error {
 	cmd := exec.Command(name, args...)
@@ -361,40 +350,12 @@ func (ac *AppController) RunHidden(name string, args []string, logPath string, d
 	return cmd.Run()
 }
 
-// ShowAutoHideInfo displays a temporary Fyne dialog and a system notification simultaneously.
-func (ac *AppController) ShowAutoHideInfo(title, message string) {
-	ShowAutoHideInfoUtil(ac, title, message)
-}
-
-// ShowErrorDialog displays an error dialog in a thread-safe way.
-func (ac *AppController) ShowErrorDialog(err error) {
-	fyne.Do(func() {
-		dialog.ShowError(err, ac.MainWindow)
-	})
-}
-
-// ShowSingBoxAlreadyRunningWarning displays a warning if sing-box is already running.
-func (ac *AppController) ShowSingBoxAlreadyRunningWarning() {
-	ShowSingBoxAlreadyRunningWarningUtil(ac)
-}
-
-// CheckFiles checks for the presence of necessary files and displays the result.
-func (ac *AppController) CheckFiles() {
-	CheckFilesUtil(ac)
-}
-
 // CheckLinuxCapabilities checks Linux capabilities and shows a suggestion if needed
 func CheckLinuxCapabilities(ac *AppController) {
 	if suggestion := platform.CheckAndSuggestCapabilities(ac.SingboxPath); suggestion != "" {
 		log.Printf("CheckLinuxCapabilities: %s", suggestion)
 		// Show info dialog (not error) - capabilities can be set later
-		fyne.Do(func() {
-			dialog.ShowInformation(
-				"Linux Capabilities",
-				suggestion,
-				ac.MainWindow,
-			)
-		})
+		dialogs.ShowInfo(ac.MainWindow, "Linux Capabilities", suggestion)
 	}
 }
 
@@ -410,7 +371,7 @@ func (r *RunningState) Set(value bool) {
 
 	r.controller.UpdateUI()
 
-	// Вызываем callback для обновления статуса в Core Dashboard
+	// Call callback to update status in Core Dashboard
 	if r.controller.UpdateCoreStatusFunc != nil {
 		r.controller.UpdateCoreStatusFunc()
 	}
@@ -469,6 +430,16 @@ func (ac *AppController) GetSelectedIndex() int {
 	return ac.SelectedIndex
 }
 
+// getOurPID safely gets the PID of the tracked sing-box process
+func getOurPID(ac *AppController) int {
+	ac.CmdMutex.Lock()
+	defer ac.CmdMutex.Unlock()
+	if ac.SingboxCmd != nil && ac.SingboxCmd.Process != nil {
+		return ac.SingboxCmd.Process.Pid
+	}
+	return -1
+}
+
 // isSingBoxProcessRunning checks if a sing-box process is currently running on the system.
 // Uses tasklist command on Windows for more reliable process detection.
 // Returns true if process found, and the PID of found process (or -1 if not found).
@@ -476,43 +447,36 @@ func isSingBoxProcessRunning(ac *AppController) (bool, int) {
 	processName := platform.GetProcessNameForCheck()
 	log.Printf("isSingBoxProcessRunning: Looking for process name '%s'", processName)
 
-	ac.CmdMutex.Lock()
-	ourPID := -1
-	if ac.SingboxCmd != nil && ac.SingboxCmd.Process != nil {
-		ourPID = ac.SingboxCmd.Process.Pid
-	}
-	ac.CmdMutex.Unlock()
+	ourPID := getOurPID(ac)
 	log.Printf("isSingBoxProcessRunning: Our tracked PID=%d", ourPID)
 
-	// На Windows используем tasklist для более надежной проверки
+	// On Windows use tasklist for more reliable process detection
 	if runtime.GOOS == "windows" {
-		// Используем tasklist /FI "IMAGENAME eq sing-box.exe" /FO CSV /NH
+		// Use tasklist /FI "IMAGENAME eq sing-box.exe" /FO CSV /NH
 		cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("IMAGENAME eq %s", processName), "/FO", "CSV", "/NH")
-		platform.PrepareCommand(cmd) // Скрываем консольное окно
+		platform.PrepareCommand(cmd) // Hide console window
 		output, err := cmd.Output()
 		if err != nil {
 			log.Printf("isSingBoxProcessRunning: tasklist command failed: %v, falling back to ps library", err)
-			// Fallback на старый способ
-			return isSingBoxProcessRunningFallback(ac)
+			return isSingBoxProcessRunningWithPS(ac, ourPID)
 		}
 
-		// Парсим CSV вывод tasklist
-		// Формат: "имя.exe","PID","Session Name","Session#","Mem Usage"
+		// Parse CSV output from tasklist
+		// Format: "name.exe","PID","Session Name","Session#","Mem Usage"
 		outputStr := strings.TrimSpace(string(output))
 		if outputStr == "" {
 			log.Printf("isSingBoxProcessRunning: No sing-box process found via tasklist")
 			return false, -1
 		}
 
-		// Парсим CSV строку
+		// Parse CSV lines
 		lines := strings.Split(outputStr, "\n")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
-			// Парсим CSV: "имя.exe","PID","..."
-			// Используем более надежный парсинг CSV
+			// Parse CSV: "name.exe","PID","..."
 			parts := parseCSVLine(line)
 			if len(parts) >= 2 {
 				name := strings.Trim(parts[0], "\"")
@@ -532,17 +496,17 @@ func isSingBoxProcessRunning(ac *AppController) (bool, int) {
 		return false, -1
 	}
 
-	// Для других ОС используем старый способ
-	return isSingBoxProcessRunningFallback(ac)
+	// For other OS use ps library
+	return isSingBoxProcessRunningWithPS(ac, ourPID)
 }
 
-// parseCSVLine парсит CSV строку, учитывая кавычки
+// parseCSVLine parses a CSV line, handling quoted fields
 func parseCSVLine(line string) []string {
 	var parts []string
 	var current strings.Builder
 	inQuotes := false
 
-	for i, r := range line {
+	for _, r := range line {
 		switch r {
 		case '"':
 			inQuotes = !inQuotes
@@ -556,41 +520,34 @@ func parseCSVLine(line string) []string {
 		default:
 			current.WriteRune(r)
 		}
-		// Последний символ
-		if i == len(line)-1 {
-			parts = append(parts, current.String())
-		}
+	}
+	// Add remaining content after the loop
+	if current.Len() > 0 || len(parts) > 0 {
+		parts = append(parts, current.String())
 	}
 
 	return parts
 }
 
-// isSingBoxProcessRunningFallback uses ps library as fallback method
-func isSingBoxProcessRunningFallback(ac *AppController) (bool, int) {
+// isSingBoxProcessRunningWithPS uses ps library to check for running process
+func isSingBoxProcessRunningWithPS(ac *AppController, ourPID int) (bool, int) {
 	processes, err := ps.Processes()
 	if err != nil {
-		log.Printf("isSingBoxProcessRunningFallback: error listing processes: %v", err)
+		log.Printf("isSingBoxProcessRunningWithPS: error listing processes: %v", err)
 		return false, -1
 	}
 	processName := platform.GetProcessNameForCheck()
-
-	ac.CmdMutex.Lock()
-	ourPID := -1
-	if ac.SingboxCmd != nil && ac.SingboxCmd.Process != nil {
-		ourPID = ac.SingboxCmd.Process.Pid
-	}
-	ac.CmdMutex.Unlock()
 
 	for _, p := range processes {
 		execName := p.Executable()
 		if strings.EqualFold(execName, processName) {
 			foundPID := p.Pid()
 			isOurProcess := (ourPID != -1 && foundPID == ourPID)
-			log.Printf("isSingBoxProcessRunningFallback: Found process: PID=%d, executable='%s' (our tracked PID=%d, isOurProcess=%v)", foundPID, execName, ourPID, isOurProcess)
+			log.Printf("isSingBoxProcessRunningWithPS: Found process: PID=%d, executable='%s' (our tracked PID=%d, isOurProcess=%v)", foundPID, execName, ourPID, isOurProcess)
 			return true, foundPID
 		}
 	}
-	log.Printf("isSingBoxProcessRunningFallback: No sing-box process found (checked %d processes)", len(processes))
+	log.Printf("isSingBoxProcessRunningWithPS: No sing-box process found (checked %d processes)", len(processes))
 	return false, -1
 }
 
@@ -600,7 +557,7 @@ func checkAndShowSingBoxRunningWarning(ac *AppController, context string) bool {
 	found, foundPID := isSingBoxProcessRunning(ac)
 	if found {
 		log.Printf("%s: Found sing-box process already running (PID=%d). Showing warning dialog.", context, foundPID)
-		ac.ShowSingBoxAlreadyRunningWarning()
+		ShowSingBoxAlreadyRunningWarningUtil(ac)
 		return true
 	}
 	log.Printf("%s: No sing-box process found", context)
@@ -610,7 +567,7 @@ func checkAndShowSingBoxRunningWarning(ac *AppController, context string) bool {
 // StartSingBoxProcess launches the sing-box process.
 func StartSingBoxProcess(ac *AppController) {
 	if ac.RunningState.IsRunning() {
-		ac.ShowAutoHideInfo("Info", "Sing-Box already running (according to internal state).")
+		dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Info", "Sing-Box already running (according to internal state).")
 		return
 	}
 
@@ -625,7 +582,7 @@ func StartSingBoxProcess(ac *AppController) {
 	// Check capabilities on Linux before starting
 	if suggestion := platform.CheckAndSuggestCapabilities(ac.SingboxPath); suggestion != "" {
 		log.Printf("startSingBox: Capabilities check failed: %s", suggestion)
-		ac.ShowErrorDialog(fmt.Errorf("Linux capabilities required\n\n%s", suggestion))
+		dialogs.ShowError(ac.MainWindow, fmt.Errorf("Linux capabilities required\n\n%s", suggestion))
 		return
 	}
 
@@ -652,7 +609,7 @@ func StartSingBoxProcess(ac *AppController) {
 	}
 	ac.RunningState.Set(true)
 	ac.StoppedByUser = false
-	//Добавляем лог с PID
+	// Add log with PID
 	log.Printf("startSingBox: Sing-Box started. PID=%d", ac.SingboxCmd.Process.Pid)
 
 	go MonitorSingBoxProcess(ac, ac.SingboxCmd)
@@ -670,23 +627,23 @@ func MonitorSingBoxProcess(ac *AppController, cmdToMonitor *exec.Cmd) {
 	ac.CmdMutex.Lock()
 	defer ac.CmdMutex.Unlock()
 
-	// ЗОЛОТОЙ СТАНДАРТ: Порядок проверок для защиты от всех гонок
-	// 1. Сначала PID (не мой ли процесс?)
+	// GOLDEN STANDARD: Check order to prevent all race conditions
+	// 1. First PID (is this my process?)
 	if ac.SingboxCmd == nil || ac.SingboxCmd.Process == nil || ac.SingboxCmd.Process.Pid != monitoredPID {
 		log.Printf("monitorSingBox: Process was restarted (PID changed from %d). This monitor is obsolete. Exiting.", monitoredPID)
 		return
 	}
 
-	// 2. Потом StoppedByUser (пользователь остановил?)
+	// 2. Then StoppedByUser (did user stop it?)
 	if ac.StoppedByUser {
 		log.Println("monitorSingBox: Sing-Box exited as requested by user.")
 		ac.ConsecutiveCrashAttempts = 0
 		ac.RunningState.Set(false)
-		ac.StoppedByUser = false // Сбрасываем флаг для следующего запуска
+		ac.StoppedByUser = false // Reset flag for next start
 		return
 	}
 
-	// 3. Потом err == nil (нормально вышел?)
+	// 3. Then err == nil (exited normally?)
 	if err == nil {
 		log.Println("monitorSingBox: Sing-Box exited gracefully (exit code 0).")
 		ac.ConsecutiveCrashAttempts = 0
@@ -694,21 +651,21 @@ func MonitorSingBoxProcess(ac *AppController, cmdToMonitor *exec.Cmd) {
 		return
 	}
 
-	// 4. Только потом — краш → рестарт
+	// 4. Only then — crash → restart
 	// Процесс завершился с ошибкой - проверяем лимит попыток
 	ac.RunningState.Set(false)
 	ac.ConsecutiveCrashAttempts++
 
 	if ac.ConsecutiveCrashAttempts > restartAttempts {
 		log.Printf("monitorSingBox: Maximum restart attempts (%d) reached. Stopping auto-restart.", restartAttempts)
-		ac.ShowErrorDialog(fmt.Errorf("Sing-Box failed to restart after %d attempts. Check sing-box.log for details.", restartAttempts))
+		dialogs.ShowError(ac.MainWindow, fmt.Errorf("Sing-Box failed to restart after %d attempts. Check sing-box.log for details.", restartAttempts))
 		ac.ConsecutiveCrashAttempts = 0
 		return
 	}
 
-	// Пытаемся перезапустить
+	// Try to restart
 	log.Printf("monitorSingBox: Sing-Box crashed: %v, attempting auto-restart (attempt %d/%d)", err, ac.ConsecutiveCrashAttempts, restartAttempts)
-	ac.ShowAutoHideInfo("Crash", fmt.Sprintf("Sing-Box crashed, restarting... (attempt %d/%d)", ac.ConsecutiveCrashAttempts, restartAttempts))
+	dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Crash", fmt.Sprintf("Sing-Box crashed, restarting... (attempt %d/%d)", ac.ConsecutiveCrashAttempts, restartAttempts))
 
 	ac.CmdMutex.Unlock()
 	StartSingBoxProcess(ac)
@@ -738,8 +695,8 @@ func MonitorSingBoxProcess(ac *AppController, cmdToMonitor *exec.Cmd) {
 func StopSingBoxProcess(ac *AppController) {
 	ac.CmdMutex.Lock()
 
-	// КРИТИЧНО: Устанавливаем флаг ПЕРЕД отправкой сигнала
-	// Это гарантирует, что монитор увидит флаг, даже если процесс завершится очень быстро
+	// CRITICAL: Set flag BEFORE sending signal
+	// This ensures the monitor sees the flag even if the process exits very quickly
 	ac.StoppedByUser = true
 	ac.ConsecutiveCrashAttempts = 0
 
@@ -781,41 +738,41 @@ func StopSingBoxProcess(ac *AppController) {
 			log.Printf("stopSingBox: Failed to kill Sing-Box process: %v", killErr)
 		}
 	} else {
-		// ИЗМЕНЕНО: Запускаем "сторожевой" таймер, который убьет процесс, если он не закроется сам
+		// Start watchdog timer that will kill the process if it doesn't close itself
 		log.Println("stopSingBox: Signal sent, starting watchdog timer...")
 		go func(pid int) {
 			time.Sleep(gracefulShutdownTimeout)
 			p, _ := ps.FindProcess(pid)
 			if p != nil {
 				log.Printf("stopSingBox watchdog: Process %d still running after timeout. Forcing kill.", pid)
-				// Надёжно убиваем процесс и его дочерние процессы
+				// Reliably kill the process and its child processes
 				_ = platform.KillProcessByPID(pid)
 			}
 		}(processToStop.Pid)
 	}
 }
 
-// RunParserProcess запускает встроенный процесс обновления конфига.
+// RunParserProcess starts the internal configuration update process.
 func RunParserProcess(ac *AppController) {
 	// Проверяем, не запущен ли уже парсинг
 	ac.ParserMutex.Lock()
 	if ac.ParserRunning {
 		ac.ParserMutex.Unlock()
-		ac.ShowAutoHideInfo("Parser Info", "Configuration update is already in progress.")
+		dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Parser Info", "Configuration update is already in progress.")
 		return
 	}
 	ac.ParserRunning = true
 	ac.ParserMutex.Unlock()
 
 	log.Println("RunParser: Starting internal configuration update...")
-	// Гарантируем, что флаг сбросится после завершения, даже если будет ошибка
+	// Ensure flag is reset after completion, even if there's an error
 	defer func() {
 		ac.ParserMutex.Lock()
 		ac.ParserRunning = false
 		ac.ParserMutex.Unlock()
 	}()
 
-	// Вызываем встроенный парсер для обновления конфигурации
+	// Call internal parser to update configuration
 	err := UpdateConfigFromSubscriptions(ac)
 
 	// Обрабатываем результат
@@ -826,7 +783,7 @@ func RunParserProcess(ac *AppController) {
 	} else {
 		log.Println("RunParser: Config updated successfully.")
 		// Progress already updated in UpdateConfigFromSubscriptions with success status
-		ac.ShowAutoHideInfo("Parser", "Config updated successfully!")
+		dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Parser", "Config updated successfully!")
 	}
 }
 
@@ -855,9 +812,7 @@ func CheckConfigFileExists(ac *AppController) {
 			examplePath,
 		)
 
-		fyne.Do(func() {
-			dialog.ShowInformation("Configuration Not Found", message, ac.MainWindow)
-		})
+		dialogs.ShowInfo(ac.MainWindow, "Configuration Not Found", message)
 	}
 }
 
@@ -881,13 +836,7 @@ func CheckIfLauncherAlreadyRunningUtil(ac *AppController) {
 			continue
 		}
 		if strings.EqualFold(p.Executable(), execName) {
-			fyne.Do(func() {
-				dialog.ShowInformation(
-					"Information",
-					"The application is already running. Use the existing instance or close it before starting a new one.",
-					ac.MainWindow,
-				)
-			})
+			dialogs.ShowInfo(ac.MainWindow, "Information", "The application is already running. Use the existing instance or close it before starting a new one.")
 			return
 		}
 	}
@@ -912,7 +861,7 @@ func CheckFilesUtil(ac *AppController) {
 	} else {
 		msg += "\nSome files missing. ❌"
 	}
-	dialog.ShowInformation("File Check", msg, ac.MainWindow)
+	dialogs.ShowInfo(ac.MainWindow, "File Check", msg)
 }
 
 func FormatBytesUtil(b int64) string {
@@ -947,18 +896,6 @@ func ShowSingBoxAlreadyRunningWarningUtil(ac *AppController) {
 	fyne.Do(func() { d.Show() })
 }
 
-func ShowAutoHideInfoUtil(ac *AppController, title, message string) {
-	ac.Application.SendNotification(&fyne.Notification{Title: title, Content: message})
-	fyne.Do(func() {
-		d := dialog.NewCustomWithoutButtons(title, widget.NewLabel(message), ac.MainWindow)
-		d.Show()
-		go func() {
-			time.Sleep(2 * time.Second)
-			fyne.Do(func() { d.Hide() })
-		}()
-	})
-}
-
 // AutoLoadProxies attempts to load proxies with retry intervals (1, 3, 7, 13, 17 seconds)
 func (ac *AppController) AutoLoadProxies() {
 	// Check if already in progress
@@ -991,8 +928,7 @@ func (ac *AppController) AutoLoadProxies() {
 		return
 	}
 
-	// Retry intervals: 1, 3, 7, 13, 17 seconds
-	intervals := []time.Duration{1, 3, 7, 13, 17}
+	intervals := []time.Duration{1, 3, 3, 5, 5, 5, 5, 5, 10, 10, 10, 10, 15, 15}
 
 	go func() {
 		for attempt, interval := range intervals {
@@ -1028,11 +964,6 @@ func (ac *AppController) AutoLoadProxies() {
 				ac.SetProxiesList(proxies)
 				ac.SetActiveProxyName(now)
 
-				// Update tray menu
-				if ac.UpdateTrayMenuFunc != nil {
-					ac.UpdateTrayMenuFunc()
-				}
-
 				// Update UI if callbacks are set
 				if ac.ProxiesListWidget != nil {
 					ac.ProxiesListWidget.Refresh()
@@ -1042,6 +973,11 @@ func (ac *AppController) AutoLoadProxies() {
 				}
 				if ac.RefreshAPIFunc != nil {
 					ac.RefreshAPIFunc()
+				}
+
+				// Update tray menu AFTER UI updates (important: this must be last)
+				if ac.UpdateTrayMenuFunc != nil {
+					ac.UpdateTrayMenuFunc()
 				}
 			})
 
@@ -1060,6 +996,48 @@ func (ac *AppController) AutoLoadProxies() {
 	}()
 }
 
+// VPNButtonState represents the state of Start/Stop VPN buttons
+type VPNButtonState struct {
+	BinaryExists bool
+	IsRunning    bool
+	StartEnabled bool
+	StopEnabled  bool
+}
+
+// GetVPNButtonState returns the current state for VPN buttons (used by both Core Dashboard and Tray Menu)
+func (ac *AppController) GetVPNButtonState() VPNButtonState {
+	// Check if sing-box executable exists (same logic as Core Dashboard tab)
+	_, err := ac.GetInstalledCoreVersion()
+	binaryExists := err == nil
+
+	// Get current running state
+	isRunning := ac.RunningState.IsRunning()
+
+	state := VPNButtonState{
+		BinaryExists: binaryExists,
+		IsRunning:    isRunning,
+	}
+
+	// Determine button states based on binary existence and running state
+	if binaryExists {
+		if isRunning {
+			// VPN is running - Start disabled, Stop enabled
+			state.StartEnabled = false
+			state.StopEnabled = true
+		} else {
+			// VPN is not running - Start enabled, Stop disabled
+			state.StartEnabled = true
+			state.StopEnabled = false
+		}
+	} else {
+		// File doesn't exist - both buttons disabled
+		state.StartEnabled = false
+		state.StopEnabled = false
+	}
+
+	return state
+}
+
 // CreateTrayMenu creates the system tray menu with proxy selection submenu
 func (ac *AppController) CreateTrayMenu() *fyne.Menu {
 	// Get proxies from current group
@@ -1071,8 +1049,17 @@ func (ac *AppController) CreateTrayMenu() *fyne.Menu {
 	ac.APIStateMutex.RUnlock()
 
 	// Auto-load proxies if list is empty and API is enabled
+	// Note: AutoLoadProxies has internal guard to prevent multiple simultaneous loads
 	if clashAPIEnabled && selectedGroup != "" && len(proxies) == 0 {
-		ac.AutoLoadProxies()
+		// Check if auto-load is already in progress to avoid duplicate calls
+		ac.AutoLoadMutex.Lock()
+		alreadyInProgress := ac.AutoLoadInProgress
+		ac.AutoLoadMutex.Unlock()
+
+		if !alreadyInProgress {
+			// Start auto-loading in background (non-blocking)
+			go ac.AutoLoadProxies()
+		}
 	}
 
 	// Create proxy submenu items
@@ -1092,7 +1079,7 @@ func (ac *AppController) CreateTrayMenu() *fyne.Menu {
 					fyne.Do(func() {
 						if err != nil {
 							log.Printf("CreateTrayMenu: Failed to switch proxy: %v", err)
-							ac.ShowErrorDialog(fmt.Errorf("failed to switch proxy: %w", err))
+							dialogs.ShowError(ac.MainWindow, fmt.Errorf("failed to switch proxy: %w", err))
 						} else {
 							ac.SetActiveProxyName(pName)
 							// Update tray menu after switch
@@ -1125,14 +1112,33 @@ func (ac *AppController) CreateTrayMenu() *fyne.Menu {
 	// Create proxy submenu
 	proxySubmenu := fyne.NewMenu("Select Proxy", proxyMenuItems...)
 
+	// Get button state from centralized function
+	buttonState := ac.GetVPNButtonState()
+
 	// Create main menu items
 	menuItems := []*fyne.MenuItem{
 		fyne.NewMenuItem("Open", func() { ac.MainWindow.Show() }),
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Start VPN", ac.StartSingBox),
-		fyne.NewMenuItem("Stop VPN", ac.StopSingBox),
-		fyne.NewMenuItemSeparator(),
 	}
+
+	// Add Start/Stop VPN buttons based on centralized state
+	if buttonState.StartEnabled {
+		menuItems = append(menuItems, fyne.NewMenuItem("Start VPN", func() { StartSingBoxProcess(ac) }))
+	} else {
+		startItem := fyne.NewMenuItem("Start VPN", nil)
+		startItem.Disabled = true
+		menuItems = append(menuItems, startItem)
+	}
+
+	if buttonState.StopEnabled {
+		menuItems = append(menuItems, fyne.NewMenuItem("Stop VPN", func() { StopSingBoxProcess(ac) }))
+	} else {
+		stopItem := fyne.NewMenuItem("Stop VPN", nil)
+		stopItem.Disabled = true
+		menuItems = append(menuItems, stopItem)
+	}
+
+	menuItems = append(menuItems, fyne.NewMenuItemSeparator())
 
 	// Add proxy submenu if Clash API is enabled
 	if clashAPIEnabled && selectedGroup != "" {

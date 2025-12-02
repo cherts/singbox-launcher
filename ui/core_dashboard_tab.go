@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -18,40 +19,40 @@ import (
 type CoreDashboardTab struct {
 	controller *core.AppController
 
-	// UI элементы
-	statusLabel             *widget.Label // Полный статус: "Core Status" + иконка + текст
-	singboxStatusLabel      *widget.Label // Статус sing-box (версия или "not found")
+	// UI elements
+	statusLabel             *widget.Label // Full status: "Core Status" + icon + text
+	singboxStatusLabel      *widget.Label // sing-box status (version or "not found")
 	downloadButton          *widget.Button
-	downloadProgress        *widget.ProgressBar // Прогресс-бар для скачивания
-	downloadContainer       fyne.CanvasObject   // Контейнер для кнопки/прогресс-бара
-	startButton             *widget.Button      // Кнопка Start
-	stopButton              *widget.Button      // Кнопка Stop
-	wintunStatusLabel       *widget.Label       // Статус wintun.dll
-	wintunDownloadButton    *widget.Button      // Кнопка скачивания wintun.dll
-	wintunDownloadProgress  *widget.ProgressBar // Прогресс-бар для скачивания wintun.dll
-	wintunDownloadContainer fyne.CanvasObject   // Контейнер для кнопки/прогресс-бара wintun
+	downloadProgress        *widget.ProgressBar // Progress bar for download
+	downloadContainer       fyne.CanvasObject   // Container for button/progress bar
+	startButton             *widget.Button      // Start button
+	stopButton              *widget.Button      // Stop button
+	wintunStatusLabel       *widget.Label       // wintun.dll status
+	wintunDownloadButton    *widget.Button      // wintun.dll download button
+	wintunDownloadProgress  *widget.ProgressBar // Progress bar for wintun.dll download
+	wintunDownloadContainer fyne.CanvasObject   // Container for wintun button/progress bar
 
-	// Данные
+	// Data
 	stopAutoUpdate           chan bool
-	lastUpdateSuccess        bool // Отслеживаем успех последнего обновления версии
-	downloadInProgress       bool // Флаг процесса скачивания sing-box
-	wintunDownloadInProgress bool // Флаг процесса скачивания wintun.dll
+	lastUpdateSuccess        bool // Track success of last version update
+	downloadInProgress       bool // Flag for sing-box download process
+	wintunDownloadInProgress bool // Flag for wintun.dll download process
 }
 
-// CreateCoreDashboardTab создает и возвращает вкладку Core Dashboard
+// CreateCoreDashboardTab creates and returns the Core Dashboard tab
 func CreateCoreDashboardTab(ac *core.AppController) fyne.CanvasObject {
 	tab := &CoreDashboardTab{
 		controller:     ac,
 		stopAutoUpdate: make(chan bool),
 	}
 
-	// Блок статуса с кнопками в одну строку
+	// Status block with buttons in one row
 	statusRow := tab.createStatusRow()
 
-	// Блок версии и пути
+	// Version and path block
 	versionBlock := tab.createVersionBlock()
 
-	// Блок wintun.dll (только для Windows)
+	// wintun.dll block (Windows only)
 	var wintunBlock fyne.CanvasObject
 	if runtime.GOOS == "windows" {
 		wintunBlock = tab.createWintunBlock()
@@ -94,7 +95,7 @@ func CreateCoreDashboardTab(ac *core.AppController) fyne.CanvasObject {
 	return content
 }
 
-// createStatusRow создает строку со статусом и кнопками
+// createStatusRow creates a row with status and buttons
 func (tab *CoreDashboardTab) createStatusRow() fyne.CanvasObject {
 	// Объединяем все в один label: "Core Status" + иконка + текст статуса
 	tab.statusLabel = widget.NewLabel("Core Status Checking...")
@@ -103,48 +104,48 @@ func (tab *CoreDashboardTab) createStatusRow() fyne.CanvasObject {
 	tab.statusLabel.Importance = widget.MediumImportance
 
 	startButton := widget.NewButton("Start", func() {
-		tab.controller.StartSingBox()
-		// Статус обновится автоматически через UpdateCoreStatusFunc
+		core.StartSingBoxProcess(tab.controller)
+		// Status will be updated automatically via UpdateCoreStatusFunc
 	})
 
 	stopButton := widget.NewButton("Stop", func() {
-		tab.controller.StopSingBox()
-		// Статус обновится автоматически через UpdateCoreStatusFunc
+		core.StopSingBoxProcess(tab.controller)
+		// Status will be updated automatically via UpdateCoreStatusFunc
 	})
 
-	// Сохраняем ссылки на кнопки для обновления блокировок
+	// Save button references for updating locks
 	tab.startButton = startButton
 	tab.stopButton = stopButton
 
-	// Статус в одну строку - все в одном label
+	// Status in one line - everything in one label
 	statusContainer := container.NewHBox(
-		tab.statusLabel, // "Core Status" + иконка + текст статуса
+		tab.statusLabel, // "Core Status" + icon + status text
 	)
 
-	// Кнопки на новой строке по центру
+	// Buttons on new line centered
 	buttonsContainer := container.NewCenter(
 		container.NewHBox(startButton, stopButton),
 	)
 
-	// Возвращаем контейнер со статусом и кнопками, с пустыми строками до и после кнопок
+	// Return container with status and buttons, with empty lines before and after buttons
 	return container.NewVBox(
 		statusContainer,
-		widget.NewLabel(""), // Пустая строка перед кнопками
+		widget.NewLabel(""), // Empty line before buttons
 		buttonsContainer,
-		widget.NewLabel(""), // Пустая строка после кнопок
+		widget.NewLabel(""), // Empty line after buttons
 	)
 }
 
-// createVersionBlock создает блок с версией (по аналогии с wintun)
+// createVersionBlock creates a block with version (similar to wintun)
 func (tab *CoreDashboardTab) createVersionBlock() fyne.CanvasObject {
 	versionTitle := widget.NewLabel("Sing-box Ver.")
 	versionTitle.Importance = widget.MediumImportance
 
-	// Статус sing-box (версия или "not found") - по аналогии с wintunStatusLabel
+	// sing-box status (version or "not found") - similar to wintunStatusLabel
 	tab.singboxStatusLabel = widget.NewLabel("Checking...")
 	tab.singboxStatusLabel.Wrapping = fyne.TextWrapOff
 
-	// Кнопка Download/Update справа от статуса
+	// Download/Update button to the right of status
 	tab.downloadButton = widget.NewButton("Download", func() {
 		tab.handleDownload()
 	})
@@ -190,39 +191,33 @@ func (tab *CoreDashboardTab) updateBinaryStatus() {
 
 // updateRunningStatus обновляет статус Running/Stopped на основе RunningState
 func (tab *CoreDashboardTab) updateRunningStatus() {
-	// Проверяем, существует ли бинарник (если нет - показываем ошибку)
-	if _, err := tab.controller.GetInstalledCoreVersion(); err != nil {
+	// Get button state from centralized function (same logic as Tray Menu)
+	buttonState := tab.controller.GetVPNButtonState()
+
+	// Update status label based on state
+	if !buttonState.BinaryExists {
 		tab.statusLabel.SetText("Core Status ❌ Error: sing-box not found")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
-		// Блокируем кнопки если бинарника нет
-		if tab.startButton != nil {
-			tab.startButton.Disable()
-		}
-		if tab.stopButton != nil {
-			tab.stopButton.Disable()
-		}
-		return
-	}
-
-	// Обновляем статус на основе RunningState
-	if tab.controller.RunningState.IsRunning() {
+	} else if buttonState.IsRunning {
 		tab.statusLabel.SetText("Core Status ✅ Running")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
-		// Блокируем Start, разблокируем Stop
-		if tab.startButton != nil {
-			tab.startButton.Disable()
-		}
-		if tab.stopButton != nil {
-			tab.stopButton.Enable()
-		}
 	} else {
 		tab.statusLabel.SetText("Core Status ⏸️ Stopped")
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
-		// Блокируем Stop, разблокируем Start
-		if tab.startButton != nil {
+	}
+
+	// Update buttons based on centralized state
+	if tab.startButton != nil {
+		if buttonState.StartEnabled {
 			tab.startButton.Enable()
+		} else {
+			tab.startButton.Disable()
 		}
-		if tab.stopButton != nil {
+	}
+	if tab.stopButton != nil {
+		if buttonState.StopEnabled {
+			tab.stopButton.Enable()
+		} else {
 			tab.stopButton.Disable()
 		}
 	}
@@ -236,7 +231,7 @@ func (tab *CoreDashboardTab) updateVersionInfo() error {
 	return nil
 }
 
-// updateVersionInfoAsync - асинхронная версия обновления информации о версии
+// updateVersionInfoAsync - asynchronous version of version information update
 func (tab *CoreDashboardTab) updateVersionInfoAsync() {
 	// Запускаем в горутине
 	go func() {
@@ -279,8 +274,8 @@ func (tab *CoreDashboardTab) updateVersionInfoAsync() {
 		// Обновляем UI с результатом
 		fyne.Do(func() {
 			if latestErr != nil {
-				// Ошибка сети - не критично, просто не показываем обновление
-				// Логируем для отладки, но не показываем пользователю
+				// Network error - not critical, just don't show update
+				// Log for debugging, but don't show to user
 				tab.downloadButton.Hide()
 				return
 			}
@@ -337,13 +332,13 @@ func (tab *CoreDashboardTab) handleDownload() {
 		return // Уже идет скачивание
 	}
 
-	// Получаем информацию о версиях (локальная операция)
+	// Get version information (local operation)
 	versionInfo := tab.controller.GetCoreVersionInfo()
 
 	targetVersion := versionInfo.LatestVersion
 	if targetVersion == "" {
 		// Пытаемся получить последнюю версию асинхронно
-		// Но для скачивания нужна версия сразу, поэтому делаем синхронно в горутине
+		// But for download we need version immediately, so do it synchronously in goroutine
 		go func() {
 			latest, err := tab.controller.GetLatestCoreVersion()
 			fyne.Do(func() {
@@ -378,9 +373,11 @@ func (tab *CoreDashboardTab) startDownloadWithVersion(targetVersion string) {
 	// Создаем канал для прогресса
 	progressChan := make(chan core.DownloadProgress, 10)
 
-	// Запускаем скачивание в отдельной горутине
+	// Start download in separate goroutine with context
 	go func() {
-		tab.controller.DownloadCore(targetVersion, progressChan)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		tab.controller.DownloadCore(ctx, targetVersion, progressChan)
 	}()
 
 	// Обрабатываем прогресс в отдельной горутине
@@ -458,7 +455,7 @@ func (tab *CoreDashboardTab) startAutoUpdate() {
 	}()
 }
 
-// createWintunBlock создает блок для отображения статуса wintun.dll
+// createWintunBlock creates a block for displaying wintun.dll status
 func (tab *CoreDashboardTab) createWintunBlock() fyne.CanvasObject {
 	wintunTitle := widget.NewLabel("WinTun DLL")
 	wintunTitle.Importance = widget.MediumImportance
@@ -538,7 +535,9 @@ func (tab *CoreDashboardTab) handleWintunDownload() {
 		progressChan := make(chan core.DownloadProgress, 10)
 
 		go func() {
-			tab.controller.DownloadWintunDLL(progressChan)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			tab.controller.DownloadWintunDLL(ctx, progressChan)
 		}()
 
 		for progress := range progressChan {

@@ -26,6 +26,13 @@ type ParsedNode struct {
 	Outbound map[string]interface{}
 }
 
+// updateParserProgress safely calls UpdateParserProgressFunc if it's not nil
+func updateParserProgress(ac *AppController, progress float64, status string) {
+	if ac.UpdateParserProgressFunc != nil {
+		ac.UpdateParserProgressFunc(progress, status)
+	}
+}
+
 // UpdateConfigFromSubscriptions updates config.json by fetching subscriptions and parsing nodes
 func UpdateConfigFromSubscriptions(ac *AppController) error {
 	log.Println("Parser: Starting configuration update...")
@@ -33,24 +40,18 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 	// Step 1: Extract configuration
 	config, err := ExtractParcerConfig(ac.ConfigPath)
 	if err != nil {
-		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(-1, fmt.Sprintf("Ошибка: %v", err))
-		}
+		updateParserProgress(ac, -1, fmt.Sprintf("Error: %v", err))
 		return fmt.Errorf("failed to extract parser config: %w", err)
 	}
 	
 	// Update progress: Step 1 completed
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(5, "Разобран блок ParcerConfig")
-	}
+	updateParserProgress(ac, 5, "Parsed ParcerConfig block")
 	
 	// Wait 0.1 sec before showing connection message
 	time.Sleep(100 * time.Millisecond)
 	
 	// Show connection message
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(5, "Соединяюсь...")
-	}
+	updateParserProgress(ac, 5, "Connecting...")
 	
 	// Small delay before starting to fetch subscriptions
 	time.Sleep(100 * time.Millisecond)
@@ -60,18 +61,14 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 	successfulSubscriptions := 0
 	totalSubscriptions := len(config.ParserConfig.Proxies)
 
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(20, fmt.Sprintf("Загрузка подписок (0/%d)...", totalSubscriptions))
-	}
+	updateParserProgress(ac, 20, fmt.Sprintf("Loading subscriptions (0/%d)...", totalSubscriptions))
 
 	for i, proxySource := range config.ParserConfig.Proxies {
 		log.Printf("Parser: Downloading subscription %d/%d from: %s", i+1, totalSubscriptions, proxySource.Source)
 		
 		// Update progress: downloading subscription
-		if ac.UpdateParserProgressFunc != nil {
-			progress := 20 + float64(i)*50.0/float64(totalSubscriptions)
-			ac.UpdateParserProgressFunc(progress, fmt.Sprintf("Загрузка подписки %d/%d: %s", i+1, totalSubscriptions, proxySource.Source))
-		}
+		progress := 20 + float64(i)*50.0/float64(totalSubscriptions)
+		updateParserProgress(ac, progress, fmt.Sprintf("Downloading subscription %d/%d: %s", i+1, totalSubscriptions, proxySource.Source))
 
 		content, err := FetchSubscription(proxySource.Source)
 		if err != nil {
@@ -86,10 +83,8 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 		}
 
 		// Update progress: parsing subscription
-		if ac.UpdateParserProgressFunc != nil {
-			progress := 20 + float64(i)*50.0/float64(totalSubscriptions) + 10.0/float64(totalSubscriptions)
-			ac.UpdateParserProgressFunc(progress, fmt.Sprintf("Парсинг подписки %d/%d: %s", i+1, totalSubscriptions, proxySource.Source))
-		}
+		progress = 20 + float64(i)*50.0/float64(totalSubscriptions) + 10.0/float64(totalSubscriptions)
+		updateParserProgress(ac, progress, fmt.Sprintf("Parsing subscription %d/%d: %s", i+1, totalSubscriptions, proxySource.Source))
 
 		// Parse subscription content
 		lines := strings.Split(string(content), "\n")
@@ -121,38 +116,28 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 		}
 		
 		// Update progress after parsing subscription
-		if ac.UpdateParserProgressFunc != nil {
-			progress := 20 + float64(i+1)*50.0/float64(totalSubscriptions)
-			ac.UpdateParserProgressFunc(progress, fmt.Sprintf("Обработано подписок: %d/%d, узлов: %d", i+1, totalSubscriptions, len(allNodes)))
-		}
+		progress = 20 + float64(i+1)*50.0/float64(totalSubscriptions)
+		updateParserProgress(ac, progress, fmt.Sprintf("Processed subscriptions: %d/%d, nodes: %d", i+1, totalSubscriptions, len(allNodes)))
 	}
 
 	// Check if we successfully loaded at least one subscription
 	if successfulSubscriptions == 0 {
-		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(-1, "Ошибка: не удалось загрузить ни одной подписки")
-		}
+		updateParserProgress(ac, -1, "Error: failed to load any subscriptions")
 		return fmt.Errorf("failed to load any subscriptions - check internet connection and subscription URLs")
 	}
 
 	log.Printf("Parser: Parsed %d nodes from subscriptions", len(allNodes))
 	
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(70, fmt.Sprintf("Обработано узлов: %d. Генерация JSON...", len(allNodes)))
-	}
+	updateParserProgress(ac, 70, fmt.Sprintf("Processed nodes: %d. Generating JSON...", len(allNodes)))
 
 	// Check if we have any nodes before proceeding
 	if len(allNodes) == 0 {
-		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(-1, "Ошибка: не найдено узлов в подписках")
-		}
+		updateParserProgress(ac, -1, "Error: no nodes found in subscriptions")
 		return fmt.Errorf("no nodes parsed from subscriptions - check internet connection and subscription URLs")
 	}
 
 	// Step 3: Generate selectors
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(75, "Генерация JSON для узлов...")
-	}
+	updateParserProgress(ac, 75, "Generating JSON for nodes...")
 	
 	selectorsJSON := make([]string, 0)
 
@@ -168,16 +153,12 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 
 	// Check if we have any node JSON before generating selectors
 	if len(selectorsJSON) == 0 {
-		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(-1, "Ошибка: не удалось сгенерировать JSON для узлов")
-		}
+		updateParserProgress(ac, -1, "Error: failed to generate JSON for nodes")
 		return fmt.Errorf("failed to generate JSON for any nodes")
 	}
 
 	// Then, generate selectors
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(85, "Генерация селекторов...")
-	}
+	updateParserProgress(ac, 85, "Generating selectors...")
 	
 	for _, outboundConfig := range config.ParserConfig.Outbounds {
 		selectorJSON, err := generateSelector(allNodes, outboundConfig)
@@ -192,30 +173,22 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 
 	// Final check: ensure we have content to write
 	if len(selectorsJSON) == 0 {
-		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(-1, "Ошибка: нечего записывать в конфигурацию")
-		}
+		updateParserProgress(ac, -1, "Error: nothing to write to configuration")
 		return fmt.Errorf("no content generated - cannot write empty result to config")
 	}
 
 	// Step 4: Write to file
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(90, "Запись в файл конфигурации...")
-	}
+	updateParserProgress(ac, 90, "Writing to config file...")
 	
 	content := strings.Join(selectorsJSON, "\n")
 	if err := writeToConfig(ac.ConfigPath, content); err != nil {
-		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(-1, fmt.Sprintf("Ошибка записи: %v", err))
-		}
+		updateParserProgress(ac, -1, fmt.Sprintf("Write error: %v", err))
 		return fmt.Errorf("failed to write to config: %w", err)
 	}
 
 	log.Printf("Parser: Done! File %s successfully updated.", ac.ConfigPath)
 	
-	if ac.UpdateParserProgressFunc != nil {
-		ac.UpdateParserProgressFunc(100, "Конфигурация успешно обновлена!")
-	}
+	updateParserProgress(ac, 100, "Configuration updated successfully!")
 	
 	return nil
 }

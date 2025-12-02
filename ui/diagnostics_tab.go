@@ -98,7 +98,7 @@ func CreateDiagnosticsTab(ac *core.AppController) fyne.CanvasObject {
 					resultLabel := widget.NewLabel(fmt.Sprintf("Your External IP: %s\n(determined via [UDP]%s)", ip, stunServer))
 					copyButton := widget.NewButton("Copy IP", func() {
 						ac.MainWindow.Clipboard().SetContent(ip)
-						ac.ShowAutoHideInfo("Copied", "IP address copied to clipboard.")
+						ShowAutoHideInfo(ac.Application, ac.MainWindow, "Copied", "IP address copied to clipboard.")
 					})
 
 					ShowCustom(ac.MainWindow, "STUN Check Result", "Close", container.NewVBox(resultLabel, copyButton))

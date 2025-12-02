@@ -2,6 +2,7 @@ package core
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -28,8 +29,8 @@ func (ac *AppController) CheckWintunDLL() (bool, error) {
 	return true, nil
 }
 
-// DownloadWintunDLL скачивает и устанавливает wintun.dll
-func (ac *AppController) DownloadWintunDLL(progressChan chan DownloadProgress) {
+// DownloadWintunDLL downloads and installs wintun.dll
+func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan chan DownloadProgress) {
 	defer close(progressChan)
 
 	if runtime.GOOS != "windows" {
@@ -60,7 +61,7 @@ func (ac *AppController) DownloadWintunDLL(progressChan chan DownloadProgress) {
 	zipPath := filepath.Join(tempDir, fmt.Sprintf("wintun-%s.zip", WinTunVersion))
 
 	progressChan <- DownloadProgress{Progress: 10, Message: "Downloading wintun.dll...", Status: "downloading"}
-	if err := ac.downloadFileFromURL(zipURL, zipPath, progressChan); err != nil {
+	if err := ac.downloadFileFromURL(ctx, zipURL, zipPath, progressChan); err != nil {
 		progressChan <- DownloadProgress{
 			Progress: 0,
 			Message:  fmt.Sprintf("Download failed: %v", err),

@@ -5,26 +5,18 @@ import (
 	"log"
 	"runtime"
 
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
+	"singbox-launcher/internal/dialogs"
 )
 
 // CheckForUpdates checks for application updates
 // This is a placeholder for future update functionality
 func (ac *AppController) CheckForUpdates() {
-	// TODO: Implement update checking using fyne.io/fyne/v2/cmd/fyne_release
-	// For now, this is a placeholder
 	log.Println("CheckForUpdates: Update checking not yet implemented")
 	
-	fyne.Do(func() {
-		dialog.ShowInformation(
-			"Updates",
-			"Automatic updates are not yet implemented.\n\n"+
-				"Please check GitHub releases for updates:\n"+
-				"https://github.com/Leadaxe/singbox-launcher/releases",
-			ac.MainWindow,
-		)
-	})
+	dialogs.ShowInfo(ac.MainWindow, "Updates",
+		"Automatic updates are not yet implemented.\n\n"+
+			"Please check GitHub releases for updates:\n"+
+			"https://github.com/Leadaxe/singbox-launcher/releases")
 }
 
 // UpdateAvailable shows a dialog when an update is available
@@ -37,24 +29,13 @@ func (ac *AppController) UpdateAvailable(version string, downloadURL string) {
 		downloadURL,
 	)
 	
-	fyne.Do(func() {
-		dialog.ShowConfirm(
-			"Update Available",
-			message,
-			func(download bool) {
-				if download {
-					// Open download URL in browser
-					// This would require platform.OpenURL which is in platform package
-					// For now, just show info
-					dialog.ShowInformation(
-						"Download",
-						"Please download the update from:\n"+downloadURL,
-						ac.MainWindow,
-					)
-				}
-			},
-			ac.MainWindow,
-		)
+	dialogs.ShowConfirm(ac.MainWindow, "Update Available", message, func(download bool) {
+		if download {
+			// Open download URL in browser
+			// This would require platform.OpenURL which is in platform package
+			// For now, just show info
+			dialogs.ShowInfo(ac.MainWindow, "Download", "Please download the update from:\n"+downloadURL)
+		}
 	})
 }
 

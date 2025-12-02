@@ -37,12 +37,12 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 		// Show progress bar and status immediately
 		parserProgressBar.SetValue(0)
 		parserProgressBar.Show()
-		parserStatusLabel.SetText("Извлечение конфигурации...")
+		parserStatusLabel.SetText("Extracting configuration...")
 		parserStatusLabel.Show()
 		
 		// Update progress to 0% immediately
 		if ac.UpdateParserProgressFunc != nil {
-			ac.UpdateParserProgressFunc(0, "Извлечение конфигурации...")
+			ac.UpdateParserProgressFunc(0, "Extracting configuration...")
 		}
 		
 		// Run parser in goroutine to avoid blocking UI
@@ -51,7 +51,7 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 			time.Sleep(100 * time.Millisecond)
 			
 			// Run parser (it will handle its own progress updates)
-			ac.RunParser()
+			core.RunParserProcess(ac)
 		}()
 	})
 
@@ -94,7 +94,7 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 			processName := platform.GetProcessNameForCheck()
 			_ = platform.KillProcess(processName)
 			fyne.Do(func() {
-				ac.ShowAutoHideInfo("Kill", "Sing-Box killed if running.")
+				ShowAutoHideInfo(ac.Application, ac.MainWindow, "Kill", "Sing-Box killed if running.")
 				ac.RunningState.Set(false)
 			})
 		}()

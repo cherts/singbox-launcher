@@ -1,4 +1,4 @@
-package ui
+package dialogs
 
 import (
 	"fmt"
@@ -44,21 +44,8 @@ func ShowConfirm(window fyne.Window, title, message string, onConfirm func(bool)
 	})
 }
 
-// ShowErrorBanner shows an error banner (widget.Entry with error styling)
-// This can be used for inline error display in forms
-func ShowErrorBanner(message string) *widget.Entry {
-	entry := widget.NewEntry()
-	entry.SetText("❌ " + message)
-	entry.Disable()
-	entry.Wrapping = fyne.TextWrapWord
-	return entry
-}
-
 // ShowAutoHideInfo shows a temporary notification and dialog that auto-hides after 2 seconds
-// This is a wrapper for internal/dialogs.ShowAutoHideInfo to maintain backward compatibility
 func ShowAutoHideInfo(app fyne.App, window fyne.Window, title, message string) {
-	// Re-export from internal/dialogs to avoid import cycles
-	// This allows ui package to use the same function
 	app.SendNotification(&fyne.Notification{Title: title, Content: message})
 	fyne.Do(func() {
 		d := dialog.NewCustomWithoutButtons(title, widget.NewLabel(message), window)
