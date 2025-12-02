@@ -68,10 +68,16 @@ func CreateCoreDashboardTab(ac *core.AppController) fyne.CanvasObject {
 		contentItems = append(contentItems, wintunBlock) // Убрали separator перед wintunBlock
 	}
 
-	// Горизонтальная линия и кнопка Exit в конце списка
+	// Горизонтальная линия и кнопки Setup Config и Exit в конце списка
 	contentItems = append(contentItems, widget.NewSeparator())
+	setupConfigButton := widget.NewButton("Setup Config", func() {
+		ShowConfigWizard(ac.MainWindow, ac)
+	})
+	setupConfigButton.Importance = widget.MediumImportance
 	exitButton := widget.NewButton("Exit", ac.GracefulExit)
-	contentItems = append(contentItems, exitButton)
+	// Кнопки в отдельных строках
+	contentItems = append(contentItems, container.NewCenter(setupConfigButton))
+	contentItems = append(contentItems, container.NewCenter(exitButton))
 
 	content := container.NewVBox(contentItems...)
 

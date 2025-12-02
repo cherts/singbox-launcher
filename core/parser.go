@@ -96,7 +96,7 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 				continue
 			}
 
-			node, err := parseNode(line, proxySource.Skip)
+			node, err := ParseNode(line, proxySource.Skip)
 			if err != nil {
 				log.Printf("Parser: Warning: Failed to parse node from %s: %v", proxySource.Source, err)
 				continue
@@ -143,7 +143,7 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 
 	// First, generate JSON for all nodes
 	for _, node := range allNodes {
-		nodeJSON, err := generateNodeJSON(node)
+		nodeJSON, err := GenerateNodeJSON(node)
 		if err != nil {
 			log.Printf("Parser: Warning: Failed to generate JSON for node %s: %v", node.Tag, err)
 			continue
@@ -161,7 +161,7 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 	updateParserProgress(ac, 85, "Generating selectors...")
 	
 	for _, outboundConfig := range config.ParserConfig.Outbounds {
-		selectorJSON, err := generateSelector(allNodes, outboundConfig)
+		selectorJSON, err := GenerateSelector(allNodes, outboundConfig)
 		if err != nil {
 			log.Printf("Parser: Warning: Failed to generate selector %s: %v", outboundConfig.Tag, err)
 			continue
@@ -193,8 +193,8 @@ func UpdateConfigFromSubscriptions(ac *AppController) error {
 	return nil
 }
 
-// parseNode parses a single node URI and applies skip filters
-func parseNode(uri string, skipFilters []map[string]string) (*ParsedNode, error) {
+// ParseNode parses a single node URI and applies skip filters (exported for use in UI)
+func ParseNode(uri string, skipFilters []map[string]string) (*ParsedNode, error) {
 	// Determine scheme
 	scheme := ""
 	uriToParse := uri
@@ -445,8 +445,8 @@ func buildOutbound(node *ParsedNode) map[string]interface{} {
 	return outbound
 }
 
-// generateNodeJSON generates JSON string for a node with correct field order
-func generateNodeJSON(node *ParsedNode) (string, error) {
+// GenerateNodeJSON generates JSON string for a node with correct field order (exported for use in UI)
+func GenerateNodeJSON(node *ParsedNode) (string, error) {
 	// Build JSON with correct field order
 	var parts []string
 
@@ -526,8 +526,8 @@ func generateNodeJSON(node *ParsedNode) (string, error) {
 	return fmt.Sprintf("\t// %s\n\t%s,", node.Label, jsonStr), nil
 }
 
-// generateSelector generates JSON string for a selector
-func generateSelector(allNodes []*ParsedNode, outboundConfig OutboundConfig) (string, error) {
+// GenerateSelector generates JSON string for a selector (exported for use in UI)
+func GenerateSelector(allNodes []*ParsedNode, outboundConfig OutboundConfig) (string, error) {
 	// Filter nodes based on outbounds.proxies
 	filteredNodes := filterNodesForSelector(allNodes, outboundConfig.Outbounds.Proxies)
 
