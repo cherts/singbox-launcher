@@ -76,8 +76,6 @@ func checkSTUN(serverAddr string) (string, error) {
 
 // CreateDiagnosticsTab creates and returns the content for the "Diagnostics" tab.
 func CreateDiagnosticsTab(ac *core.AppController) fyne.CanvasObject {
-	checkFilesButton := widget.NewButton("Check Files", ac.CheckFiles)
-
 	// Кнопка для проверки STUN
 	stunButton := widget.NewButton("Check STUN", func() {
 		// Показываем диалог ожидания
@@ -121,7 +119,6 @@ func CreateDiagnosticsTab(ac *core.AppController) fyne.CanvasObject {
 
 	return container.NewVBox(
 		widget.NewLabel("Diagnostics"),
-		checkFilesButton,
 		stunButton,
 		widget.NewSeparator(),
 		widget.NewLabel("IP Check Services:"),
