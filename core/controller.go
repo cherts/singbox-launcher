@@ -95,11 +95,11 @@ type AppController struct {
 	AutoLoadMutex      sync.Mutex // Mutex for AutoLoadInProgress
 
 	// --- Callbacks for UI logic ---
-	RefreshAPIFunc       func()
-	ResetAPIStateFunc    func()
-	UpdateCoreStatusFunc func() // Callback to update status in Core Dashboard
+	RefreshAPIFunc         func()
+	ResetAPIStateFunc      func()
+	UpdateCoreStatusFunc   func() // Callback to update status in Core Dashboard
 	UpdateConfigStatusFunc func() // Callback to update config status in Core Dashboard
-	UpdateTrayMenuFunc   func() // Callback to update tray menu
+	UpdateTrayMenuFunc     func() // Callback to update tray menu
 
 	// --- Parser progress UI ---
 	ParserProgressBar        *widget.ProgressBar
@@ -278,6 +278,11 @@ func (ac *AppController) UpdateUI() {
 		// Update tray menu when state changes (same as Core Dashboard)
 		if ac.UpdateTrayMenuFunc != nil {
 			ac.UpdateTrayMenuFunc()
+		}
+
+		// Update Core Dashboard status when state changes (synchronize with tray)
+		if ac.UpdateCoreStatusFunc != nil {
+			ac.UpdateCoreStatusFunc()
 		}
 	})
 }
@@ -567,15 +572,19 @@ func checkAndShowSingBoxRunningWarning(ac *AppController, context string) bool {
 }
 
 // StartSingBoxProcess launches the sing-box process.
-func StartSingBoxProcess(ac *AppController) {
+// skipRunningCheck: если true, пропускает проверку на уже запущенный процесс (для автоперезапуска)
+func StartSingBoxProcess(ac *AppController, skipRunningCheck ...bool) {
 	if ac.RunningState.IsRunning() {
 		dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Info", "Sing-Box already running (according to internal state).")
 		return
 	}
 
-	// Проверяем, не запущен ли уже процесс на уровне ОС
-	if checkAndShowSingBoxRunningWarning(ac, "startSingBox") {
-		return
+	// Проверяем, не запущен ли уже процесс на уровне ОС (пропускаем при автоперезапуске)
+	skipCheck := len(skipRunningCheck) > 0 && skipRunningCheck[0]
+	if !skipCheck {
+		if checkAndShowSingBoxRunningWarning(ac, "startSingBox") {
+			return
+		}
 	}
 
 	ac.CmdMutex.Lock()
@@ -701,8 +710,10 @@ func MonitorSingBoxProcess(ac *AppController, cmdToMonitor *exec.Cmd) {
 	log.Printf("monitorSingBox: Sing-Box crashed: %v, attempting auto-restart (attempt %d/%d)", err, ac.ConsecutiveCrashAttempts, restartAttempts)
 	dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Crash", fmt.Sprintf("Sing-Box crashed, restarting... (attempt %d/%d)", ac.ConsecutiveCrashAttempts, restartAttempts))
 
+	// Wait 2 seconds before restart
 	ac.CmdMutex.Unlock()
-	StartSingBoxProcess(ac)
+	time.Sleep(2 * time.Second)
+	StartSingBoxProcess(ac, true) // skipRunningCheck = true для автоперезапуска
 	ac.CmdMutex.Lock()
 
 	if ac.RunningState.IsRunning() {

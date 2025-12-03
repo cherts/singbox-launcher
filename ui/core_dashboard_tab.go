@@ -378,14 +378,19 @@ func (tab *CoreDashboardTab) updateRunningStatus() {
 	buttonState := tab.controller.GetVPNButtonState()
 
 	// Update status label based on state
+	restartInfo := ""
+	if tab.controller.ConsecutiveCrashAttempts > 0 {
+		restartInfo = fmt.Sprintf(" [restart %d/%d]", tab.controller.ConsecutiveCrashAttempts, 3)
+	}
+
 	if !buttonState.BinaryExists {
-		tab.statusLabel.SetText("Core Status ❌ Error: sing-box not found")
+		tab.statusLabel.SetText("Core Status ❌ Error: sing-box not found" + restartInfo)
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 	} else if buttonState.IsRunning {
-		tab.statusLabel.SetText("Core Status ✅ Running")
+		tab.statusLabel.SetText("Core Status ✅ Running" + restartInfo)
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 	} else {
-		tab.statusLabel.SetText("Core Status ⏸️ Stopped")
+		tab.statusLabel.SetText("Core Status ⏸️ Stopped" + restartInfo)
 		tab.statusLabel.Importance = widget.MediumImportance // Текст всегда черный
 	}
 
