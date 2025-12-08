@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -42,7 +43,7 @@ type CoreDashboardTab struct {
 	wintunDownloadProgress    *widget.ProgressBar // Progress bar for wintun.dll download
 	wintunDownloadContainer   fyne.CanvasObject   // Container for wintun button/progress bar
 	wintunDownloadPlaceholder *canvas.Rectangle   // keeps width when button hidden
-	configStatusLabel         *widget.Label
+	configStatusLabel         *widget.Button      // Используем Button для возможности клика
 	templateDownloadButton    *widget.Button
 	wizardButton              *widget.Button
 	updateConfigButton        *widget.Button
@@ -216,11 +217,20 @@ func (tab *CoreDashboardTab) createStatusRow() fyne.CanvasObject {
 }
 
 func (tab *CoreDashboardTab) createConfigBlock() fyne.CanvasObject {
-	title := widget.NewLabel("Config")
-	title.Importance = widget.MediumImportance
+	// Используем Button вместо Label для возможности клика
+	title := widget.NewButton("Config", func() {
+		log.Println("CoreDashboard: Config title clicked, reading config...")
+		tab.readConfigOnDemand()
+	})
+	// Делаем кнопку похожей на Label (без рамки)
+	title.Importance = widget.LowImportance
 
-	tab.configStatusLabel = widget.NewLabel("Checking config...")
-	tab.configStatusLabel.Wrapping = fyne.TextWrapOff
+	// Используем Button для configStatusLabel, чтобы сделать его кликабельным
+	tab.configStatusLabel = widget.NewButton("Checking config...", func() {
+		log.Println("CoreDashboard: Config status label clicked, reading config...")
+		tab.readConfigOnDemand()
+	})
+	tab.configStatusLabel.Importance = widget.LowImportance
 
 	// Создаем прогрессбар и статус для парсера
 	tab.parserProgressBar = widget.NewProgressBar()
@@ -483,6 +493,27 @@ func (tab *CoreDashboardTab) updateRunningStatus() {
 			tab.stopButton.Importance = widget.MediumImportance // Обычная, когда недоступна
 			tab.stopButton.Refresh()
 		}
+	}
+}
+
+// readConfigOnDemand reads config when user clicks on config label/title
+func (tab *CoreDashboardTab) readConfigOnDemand() {
+	// Читаем конфиг
+	config, err := core.ExtractParcerConfig(tab.controller.ConfigPath)
+	if err != nil {
+		log.Printf("CoreDashboard: Failed to read config on demand: %v", err)
+		// Можно показать сообщение пользователю через dialog
+		return
+	}
+
+	log.Printf("CoreDashboard: Config read successfully on demand (version %d, %d proxy sources, %d outbounds)",
+		config.ParserConfig.Version,
+		len(config.ParserConfig.Proxies),
+		len(config.ParserConfig.Outbounds))
+
+	// Обновляем информацию о конфиге в UI
+	if tab.controller.UpdateConfigStatusFunc != nil {
+		tab.controller.UpdateConfigStatusFunc()
 	}
 }
 

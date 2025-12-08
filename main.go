@@ -82,8 +82,19 @@ func main() {
 			// Set initial menu
 			updateTrayMenu()
 
-			// Start automatic config reload scheduler
-			core.StartAutoReloadScheduler(controller)
+			// Read config once at application startup
+			go func() {
+				log.Println("Application startup: Reading config...")
+				config, err := core.ExtractParcerConfig(controller.ConfigPath)
+				if err != nil {
+					log.Printf("Application startup: Failed to read config: %v", err)
+					return
+				}
+				log.Printf("Application startup: Config read successfully (version %d, %d proxy sources, %d outbounds)",
+					config.ParserConfig.Version,
+					len(config.ParserConfig.Proxies),
+					len(config.ParserConfig.Outbounds))
+			}()
 		})
 	}
 

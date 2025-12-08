@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -156,38 +155,13 @@ func checkAndRotateLogFile(logPath string) {
 	}
 }
 
-// filteredLogWriter фильтрует сообщения логов, игнорируя известные некритичные ошибки
-type filteredLogWriter struct {
-	writer io.Writer
-	file   *os.File // Сохраняем файл для закрытия
-}
-
-func (w *filteredLogWriter) Write(p []byte) (n int, err error) {
-	// Игнорируем известные некритичные ошибки systray
-	msg := string(p)
-	if strings.Contains(msg, "systray error: unable to removeMenuItem: Invalid menu handle") {
-		// Игнорируем эти ошибки - они не критичны и засоряют логи
-		return len(p), nil
-	}
-	// Пропускаем все остальные сообщения
-	return w.writer.Write(p)
-}
-
 // openLogFileWithRotation opens a log file and rotates it if it exceeds maxLogFileSize
-// Returns both the filtered writer (for log.SetOutput) and the file (for closing)
-func openLogFileWithRotation(logPath string) (io.Writer, *os.File, error) {
+func openLogFileWithRotation(logPath string) (*os.File, error) {
 	checkAndRotateLogFile(logPath)
 
 	// Open file in append mode (not truncate) to preserve recent logs
 	// But if file was rotated, it will be a new file
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return nil, nil, err
-	}
-	
-	// Обертываем в фильтрованный writer для подавления некритичных ошибок
-	filtered := &filteredLogWriter{writer: file, file: file}
-	return filtered, file, nil
+	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 }
 
 // NewAppController creates and initializes a new AppController instance.
@@ -212,14 +186,14 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 	ac.WintunPath = platform.GetWintunPath(ac.ExecDir)
 
 	// Open log files with rotation support
-	logWriter, logFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, logFileName))
+	logFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, logFileName))
 	if err != nil {
 		return nil, fmt.Errorf("NewAppController: cannot open main log file: %w", err)
 	}
-	log.SetOutput(logWriter)
+	log.SetOutput(logFile)
 	ac.MainLogFile = logFile
 
-	_, childLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, childLogFileName))
+	childLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, childLogFileName))
 	if err != nil {
 		log.Printf("NewAppController: failed to open sing-box child log file: %v", err)
 		ac.ChildLogFile = nil
@@ -227,7 +201,7 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 		ac.ChildLogFile = childLogFile
 	}
 
-	_, apiLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, apiLogFileName))
+	apiLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, apiLogFileName))
 	if err != nil {
 		log.Printf("NewAppController: failed to open API log file: %v", err)
 		ac.ApiLogFile = nil
@@ -1012,80 +986,6 @@ func RunParserProcess(ac *AppController) {
 		// Progress already updated in UpdateConfigFromSubscriptions with success status
 		dialogs.ShowAutoHideInfo(ac.Application, ac.MainWindow, "Parser", "Config updated successfully!")
 	}
-}
-
-// StartAutoReloadScheduler starts a background goroutine that periodically checks
-// if the configuration needs to be automatically reloaded based on the reload interval
-func StartAutoReloadScheduler(ac *AppController) {
-	go func() {
-		log.Println("AutoReload: Starting scheduler")
-		ticker := time.NewTicker(1 * time.Minute) // Check every minute
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ac.ctx.Done():
-				log.Println("AutoReload: Scheduler stopped (context cancelled)")
-				return
-			case <-ticker.C:
-				// Check if parser is already running
-				ac.ParserMutex.Lock()
-				if ac.ParserRunning {
-					ac.ParserMutex.Unlock()
-					continue
-				}
-				ac.ParserMutex.Unlock()
-
-				// Extract config to check reload settings
-				config, err := ExtractParcerConfig(ac.ConfigPath)
-				if err != nil {
-					log.Printf("AutoReload: Failed to extract config: %v", err)
-					continue
-				}
-
-				// Check if parser object exists and has reload setting
-				if config.ParserConfig.Parser.Reload == "" {
-					// No reload interval specified, skip silently
-					continue
-				}
-
-				// Parse reload interval
-				reloadDuration, err := time.ParseDuration(config.ParserConfig.Parser.Reload)
-				if err != nil {
-					log.Printf("AutoReload: Error parsing reload interval '%s': %v", config.ParserConfig.Parser.Reload, err)
-					continue
-				}
-
-				// Check if last_updated exists
-				if config.ParserConfig.Parser.LastUpdated == "" {
-					// No last_updated, trigger update
-					log.Printf("AutoReload: No last_updated found, triggering automatic config update (interval: %s)", config.ParserConfig.Parser.Reload)
-					go RunParserProcess(ac)
-					continue
-				}
-
-				// Parse last_updated timestamp
-				lastUpdated, err := time.Parse(time.RFC3339, config.ParserConfig.Parser.LastUpdated)
-				if err != nil {
-					log.Printf("AutoReload: Error parsing last_updated '%s': %v", config.ParserConfig.Parser.LastUpdated, err)
-					// Treat as if update is needed
-					log.Printf("AutoReload: Triggering automatic config update due to invalid last_updated (interval: %s)", config.ParserConfig.Parser.Reload)
-					go RunParserProcess(ac)
-					continue
-				}
-
-				// Check if enough time has passed
-				nextUpdateTime := lastUpdated.Add(reloadDuration)
-				now := time.Now().UTC()
-
-				if now.After(nextUpdateTime) || now.Equal(nextUpdateTime) {
-					log.Printf("AutoReload: Triggering automatic config update (interval: %s, last_updated: %s)", config.ParserConfig.Parser.Reload, config.ParserConfig.Parser.LastUpdated)
-					go RunParserProcess(ac)
-				}
-				// Убрали лишний лог когда обновление не требуется - он засорял логи
-			}
-		}
-	}()
 }
 
 func CheckIfSingBoxRunningAtStartUtil(ac *AppController) {
