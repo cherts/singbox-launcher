@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -155,13 +156,38 @@ func checkAndRotateLogFile(logPath string) {
 	}
 }
 
+// filteredLogWriter фильтрует сообщения логов, игнорируя известные некритичные ошибки
+type filteredLogWriter struct {
+	writer io.Writer
+	file   *os.File // Сохраняем файл для закрытия
+}
+
+func (w *filteredLogWriter) Write(p []byte) (n int, err error) {
+	// Игнорируем известные некритичные ошибки systray
+	msg := string(p)
+	if strings.Contains(msg, "systray error: unable to removeMenuItem: Invalid menu handle") {
+		// Игнорируем эти ошибки - они не критичны и засоряют логи
+		return len(p), nil
+	}
+	// Пропускаем все остальные сообщения
+	return w.writer.Write(p)
+}
+
 // openLogFileWithRotation opens a log file and rotates it if it exceeds maxLogFileSize
-func openLogFileWithRotation(logPath string) (*os.File, error) {
+// Returns both the filtered writer (for log.SetOutput) and the file (for closing)
+func openLogFileWithRotation(logPath string) (io.Writer, *os.File, error) {
 	checkAndRotateLogFile(logPath)
 
 	// Open file in append mode (not truncate) to preserve recent logs
 	// But if file was rotated, it will be a new file
-	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	// Обертываем в фильтрованный writer для подавления некритичных ошибок
+	filtered := &filteredLogWriter{writer: file, file: file}
+	return filtered, file, nil
 }
 
 // NewAppController creates and initializes a new AppController instance.
@@ -186,14 +212,14 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 	ac.WintunPath = platform.GetWintunPath(ac.ExecDir)
 
 	// Open log files with rotation support
-	logFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, logFileName))
+	logWriter, logFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, logFileName))
 	if err != nil {
 		return nil, fmt.Errorf("NewAppController: cannot open main log file: %w", err)
 	}
-	log.SetOutput(logFile)
+	log.SetOutput(logWriter)
 	ac.MainLogFile = logFile
 
-	childLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, childLogFileName))
+	_, childLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, childLogFileName))
 	if err != nil {
 		log.Printf("NewAppController: failed to open sing-box child log file: %v", err)
 		ac.ChildLogFile = nil
@@ -201,7 +227,7 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 		ac.ChildLogFile = childLogFile
 	}
 
-	apiLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, apiLogFileName))
+	_, apiLogFile, err := openLogFileWithRotation(filepath.Join(ac.ExecDir, apiLogFileName))
 	if err != nil {
 		log.Printf("NewAppController: failed to open API log file: %v", err)
 		ac.ApiLogFile = nil
