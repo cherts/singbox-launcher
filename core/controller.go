@@ -98,8 +98,9 @@ type AppController struct {
 	AutoLoadMutex      sync.Mutex // Mutex for AutoLoadInProgress
 
 	// --- Tray menu update protection ---
-	TrayMenuUpdateInProgress bool       // Flag to prevent multiple simultaneous menu updates
-	TrayMenuUpdateMutex      sync.Mutex // Mutex for TrayMenuUpdateInProgress
+	TrayMenuUpdateInProgress bool        // Flag to prevent multiple simultaneous menu updates
+	TrayMenuUpdateMutex      sync.Mutex  // Mutex for TrayMenuUpdateInProgress
+	TrayMenuUpdateTimer      *time.Timer // Timer for debouncing menu updates
 
 	// --- Version check caching ---
 	VersionCheckCache      string       // Cached latest version
@@ -314,6 +315,14 @@ func (ac *AppController) UpdateUI() {
 
 // GracefulExit performs a graceful shutdown of the application.
 func (ac *AppController) GracefulExit() {
+	// Stop any pending menu update timer
+	ac.TrayMenuUpdateMutex.Lock()
+	if ac.TrayMenuUpdateTimer != nil {
+		ac.TrayMenuUpdateTimer.Stop()
+		ac.TrayMenuUpdateTimer = nil
+	}
+	ac.TrayMenuUpdateMutex.Unlock()
+
 	StopSingBoxProcess(ac)
 
 	log.Println("GracefulExit: Waiting for sing-box to stop...")

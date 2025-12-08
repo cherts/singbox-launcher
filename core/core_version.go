@@ -52,13 +52,13 @@ func (ac *AppController) GetInstalledCoreVersion() (string, error) {
 	if len(matches) > 1 {
 		version := matches[1]
 		log.Printf("GetInstalledCoreVersion: found version: %s", version)
-		
+
 		// Сохраняем в кеш
 		ac.InstalledVersionMutex.Lock()
 		ac.InstalledVersionCache = version
 		ac.InstalledVersionCacheTime = time.Now()
 		ac.InstalledVersionMutex.Unlock()
-		
+
 		return version, nil
 	}
 
@@ -123,7 +123,8 @@ func (ac *AppController) GetLatestCoreVersion() (string, error) {
 	return FallbackVersion, nil
 }
 
-// ShouldCheckVersion проверяет, нужно ли проверять версию (не прошло ли 24 часа с последней успешной проверки)
+// ShouldCheckVersion проверяет, нужно ли проверять версию
+// Если версия успешно получена (не FallbackVersion), проверки прекращаются до перезапуска приложения
 func (ac *AppController) ShouldCheckVersion() bool {
 	ac.VersionCheckMutex.RLock()
 	defer ac.VersionCheckMutex.RUnlock()
@@ -133,7 +134,14 @@ func (ac *AppController) ShouldCheckVersion() bool {
 		return true
 	}
 
-	// Если прошло больше 24 часов - нужно проверить
+	// Если версия успешно получена (не FallbackVersion), прекращаем проверки до перезапуска
+	// Это означает, что версия была получена из GitHub, а не fallback
+	if ac.VersionCheckCache != FallbackVersion {
+		return false // Версия успешно получена, не проверяем до перезапуска
+	}
+
+	// Если это FallbackVersion, проверяем периодически (каждые 24 часа)
+	// чтобы попытаться получить реальную версию
 	timeSinceCheck := time.Since(ac.VersionCheckCacheTime)
 	if timeSinceCheck >= 24*time.Hour {
 		return true
@@ -185,11 +193,13 @@ func (ac *AppController) CheckVersionInBackground() {
 
 		// Логика повторных попыток
 		maxQuickAttempts := 10
+		maxTotalAttempts := 30 // Максимальное количество попыток всего
 		quickInterval := 1 * time.Minute
 		slowInterval := 5 * time.Minute
+		verySlowInterval := 30 * time.Minute // Очень медленный интервал после многих попыток
 
 		attemptCount := 0
-		for {
+		for attemptCount < maxTotalAttempts {
 			// Проверяем кеш перед каждой попыткой - возможно версия уже получена другой горутиной
 			if !ac.ShouldCheckVersion() {
 				log.Println("CheckVersionInBackground: Version already cached, stopping")
@@ -200,8 +210,10 @@ func (ac *AppController) CheckVersionInBackground() {
 			var interval time.Duration
 			if attemptCount < maxQuickAttempts {
 				interval = quickInterval
-			} else {
+			} else if attemptCount < 20 {
 				interval = slowInterval
+			} else {
+				interval = verySlowInterval
 			}
 
 			// Ждем перед попыткой (кроме первой)
@@ -222,14 +234,19 @@ func (ac *AppController) CheckVersionInBackground() {
 			}
 
 			attemptCount++
-			log.Printf("CheckVersionInBackground: Attempt %d to get latest version", attemptCount)
+			log.Printf("CheckVersionInBackground: Attempt %d/%d to get latest version", attemptCount, maxTotalAttempts)
 
 			// Пытаемся получить версию
 			version, err := ac.GetLatestCoreVersion()
-			if err == nil && version != FallbackVersion {
-				// Успех - сохраняем в кеш и выходим
+			if err == nil {
+				// Успех - сохраняем в кеш (даже если это FallbackVersion) и выходим
+				// Это предотвращает бесконечные проверки
 				ac.SetCachedVersion(version)
-				log.Printf("CheckVersionInBackground: Successfully cached version %s", version)
+				if version == FallbackVersion {
+					log.Printf("CheckVersionInBackground: Using fallback version %s (GitHub unavailable), will retry in 24h", version)
+				} else {
+					log.Printf("CheckVersionInBackground: Successfully cached version %s, checks stopped until app restart", version)
+				}
 				return
 			}
 
@@ -237,6 +254,10 @@ func (ac *AppController) CheckVersionInBackground() {
 				log.Printf("CheckVersionInBackground: Attempt %d failed: %v", attemptCount, err)
 			}
 		}
+
+		// Если достигли максимального количества попыток, сохраняем FallbackVersion
+		log.Printf("CheckVersionInBackground: Reached max attempts (%d), using fallback version %s", maxTotalAttempts, FallbackVersion)
+		ac.SetCachedVersion(FallbackVersion)
 	}()
 }
 

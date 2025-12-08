@@ -46,35 +46,69 @@ func main() {
 				})
 			}()
 			// Create the menu for the system tray with proxy selection submenu
-			// Safe wrapper that prevents concurrent menu updates
+			// Safe wrapper with debounce to prevent "Invalid menu handle" errors
+			// when menu updates happen too quickly
 			updateTrayMenu := func() {
-				// Check if update is already in progress
 				controller.TrayMenuUpdateMutex.Lock()
-				if controller.TrayMenuUpdateInProgress {
-					controller.TrayMenuUpdateMutex.Unlock()
-					return // Skip update if already in progress
+				defer controller.TrayMenuUpdateMutex.Unlock()
+
+				// Cancel previous timer if it exists
+				if controller.TrayMenuUpdateTimer != nil {
+					controller.TrayMenuUpdateTimer.Stop()
 				}
-				controller.TrayMenuUpdateInProgress = true
-				controller.TrayMenuUpdateMutex.Unlock()
 
-				fyne.Do(func() {
-					defer func() {
-						// Reset flag after update completes
-						controller.TrayMenuUpdateMutex.Lock()
-						controller.TrayMenuUpdateInProgress = false
+				// Calculate dynamic delay based on number of proxies
+				// Get proxy count to determine appropriate delay
+				controller.APIStateMutex.RLock()
+				proxyCount := len(controller.ProxiesList)
+				controller.APIStateMutex.RUnlock()
+
+				// Dynamic delay formula:
+				// - Base delay: 100ms for small menus (0-10 proxies)
+				// - For each proxy above 10, add 20ms
+				// - Maximum delay: 500ms to ensure systray has enough time for large menus
+				delay := 100 * time.Millisecond
+				if proxyCount > 10 {
+					extraDelay := time.Duration(proxyCount-10) * 20 * time.Millisecond
+					delay += extraDelay
+					// Cap at 500ms maximum
+					if delay > 500*time.Millisecond {
+						delay = 500 * time.Millisecond
+					}
+				}
+
+				// Create new timer with dynamic debounce delay
+				// This prevents rapid successive menu updates that cause systray errors
+				controller.TrayMenuUpdateTimer = time.AfterFunc(delay, func() {
+					// Check if update is already in progress
+					controller.TrayMenuUpdateMutex.Lock()
+					if controller.TrayMenuUpdateInProgress {
 						controller.TrayMenuUpdateMutex.Unlock()
-					}()
+						return // Skip update if already in progress
+					}
+					controller.TrayMenuUpdateInProgress = true
+					controller.TrayMenuUpdateMutex.Unlock()
 
-					menu := controller.CreateTrayMenu()
-					// Use recover to handle any panics during menu update
-					func() {
+					fyne.Do(func() {
 						defer func() {
-							if r := recover(); r != nil {
-								log.Printf("updateTrayMenu: Recovered from panic: %v", r)
-							}
+							// Reset flag after update completes
+							controller.TrayMenuUpdateMutex.Lock()
+							controller.TrayMenuUpdateInProgress = false
+							controller.TrayMenuUpdateTimer = nil
+							controller.TrayMenuUpdateMutex.Unlock()
 						}()
-						desk.SetSystemTrayMenu(menu)
-					}()
+
+						menu := controller.CreateTrayMenu()
+						// Use recover to handle any panics during menu update
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									log.Printf("updateTrayMenu: Recovered from panic: %v", r)
+								}
+							}()
+							desk.SetSystemTrayMenu(menu)
+						}()
+					})
 				})
 			}
 			controller.UpdateTrayMenuFunc = updateTrayMenu
