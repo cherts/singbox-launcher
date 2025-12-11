@@ -313,7 +313,7 @@ The `config_template.json` file provides a template for the Config Wizard and de
 
 **Template Directives:**
 
-- `/** @ParserConfig ... */` - Default parser configuration block
+- `/** @ParcerConfig ... */` - Default parser configuration block
 - `/** @SelectableRule ... */` - Defines a selectable routing rule
   - `@label` - Display name for the rule (shown in wizard)
   - `@description` - Description shown in info tooltip (optional)
@@ -382,11 +382,16 @@ You can create your own `config_template.json` file to customize the rules avail
 1. **Start with the default template**: Download the default template using the **"Download Config Template"** button
 2. **Edit the template**: Modify `config_template.json` in the `bin/` folder
 3. **Add custom rules**: Use the `/** @SelectableRule ... */` syntax to add your own routing rules
-4. **Customize ParserConfig**: Modify the `/** @ParserConfig ... */` block to set default subscription settings
+4. **Customize ParserConfig**: Modify the `/** @ParcerConfig ... */` block to set default subscription settings
 5. **Save and use**: The wizard will automatically use your custom template
 
 **Template Structure:**
 - Base configuration sections (log, dns, inbounds, route, etc.) are always included
+
+**📖 Complete Guide for VPN Providers:**
+
+For detailed instructions on creating your own `config_template.json` template, see:
+- **[docs/CREATE_WIZARD_TEMPLATE.md](docs/CREATE_WIZARD_TEMPLATE.md)** - Complete guide with examples and best practices
 - Rules marked with `/** @SelectableRule ... */` appear in the wizard's Rules tab
 - The `/** @PARSER_OUTBOUNDS_BLOCK */` marker indicates where generated outbounds will be inserted
 - Rules with `@default` directive are enabled by default in the wizard
@@ -414,7 +419,7 @@ For automatic configuration updates from subscriptions, add at the beginning of 
 
 ```json
 {
-  /** @ParserConfig
+  /** @ParcerConfig
   {
     "ParserConfig": {
       "version": 2,
@@ -450,7 +455,7 @@ For automatic configuration updates from subscriptions, add at the beginning of 
 }
 ```
 
-**📖 For detailed parser configuration documentation, see [ParserConfig.md](ParserConfig.md)**
+**📖 For detailed parser configuration documentation, see [docs/ParserConfig.md](docs/ParserConfig.md)**
 
 **Note:** You can configure all of this visually via the Config Wizard (recommended for beginners). Manual JSON editing is for advanced users.
 
@@ -462,7 +467,7 @@ The subscription parser is a built-in feature that automatically updates the pro
 
 #### 1. Parser Configuration
 
-At the beginning of the `config.json` file, there should be a `/** @ParserConfig ... */` block with JSON configuration.
+At the beginning of the `config.json` file, there should be a `/** @ParcerConfig ... */` block with JSON configuration.
 
 **Version 2 (Current)**: The `version` field is now inside `ParserConfig`. Automatic configuration reload is supported via the `parser` object.
 
@@ -470,7 +475,7 @@ At the beginning of the `config.json` file, there should be a `/** @ParserConfig
 
 ```json
 {
-  /** @ParserConfig
+  /** @ParcerConfig
   {
     "ParserConfig": {
       "version": 2,
@@ -511,7 +516,7 @@ At the beginning of the `config.json` file, there should be a `/** @ParserConfig
 When you click the **"Update Config"** button in the "Core" tab (or use the Config Wizard):
 
 1. **Reading Configuration**
-   - Parser finds the `@ParserConfig` block in `config.json`
+   - Parser finds the `@ParcerConfig` block in `config.json`
    - Extracts subscription URLs from the `proxies[].source` field
    - Extracts direct links from the `proxies[].connections` field
 
@@ -630,7 +635,7 @@ The launcher checks every minute if an update is needed based on the `reload` in
 }
 ```
 
-**📖 For detailed parser configuration, see [ParserConfig.md](ParserConfig.md)**
+**📖 For detailed parser configuration, see [docs/ParserConfig.md](docs/ParserConfig.md)**
 
 ## 🏗️ Project Architecture
 
@@ -741,7 +746,7 @@ The launcher includes intelligent auto-restart functionality:
 - CGO (enabled by default)
 - Optional: `rsrc` for embedding icon (`go install github.com/akavel/rsrc@latest`)
 
-**⚠️ Important:** If you see error `gcc: executable file not found`, install GCC (see [BUILD_WINDOWS.md](BUILD_WINDOWS.md) "Troubleshooting" section)
+**⚠️ Important:** If you see error `gcc: executable file not found`, install GCC (see [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md) "Troubleshooting" section)
 
 **Build:**
 
@@ -762,7 +767,7 @@ go mod tidy
 go build -buildvcs=false -ldflags="-H windowsgui -s -w" -o singbox-launcher.exe
 ```
 
-**Detailed instructions:** See [BUILD_WINDOWS.md](BUILD_WINDOWS.md)
+**Detailed instructions:** See [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md)
 
 ### macOS & Linux
 

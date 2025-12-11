@@ -28,7 +28,7 @@
    ```
 
 2. **Откройте `config.json`** и настройте:
-   - Добавьте URL вашей подписки в блок `@ParserConfig`
+   - Добавьте URL вашей подписки в блок `@ParcerConfig`
    - Измените `secret` в секции `experimental.clash_api`
    - При необходимости настройте DNS и правила маршрутизации
 
@@ -77,13 +77,13 @@ This release includes prebuilt `sing-box.exe` (Windows) / `sing-box` (macOS/Linu
 - **sing-box**: GPL-3.0
 - **wintun.dll**: MIT License
 
-Подробнее см. [LICENSE_NOTICE.md](../LICENSE_NOTICE.md) в корне проекта.
+Подробнее см. [docs/LICENSE_NOTICE.md](../docs/LICENSE_NOTICE.md) в папке docs.
 
 ## 📖 Документация
 
 - **Полная документация**: [README.md](../README.md)
-- **Инструкции по сборке**: [BUILD_WINDOWS.md](../BUILD_WINDOWS.md)
-- **Настройка парсера подписок**: [ParserConfig.md](../ParserConfig.md)
+- **Инструкции по сборке**: [docs/BUILD_WINDOWS.md](../docs/BUILD_WINDOWS.md)
+- **Настройка парсера подписок**: [docs/ParserConfig.md](../docs/ParserConfig.md)
 
 ## 🔗 Ссылки
 
