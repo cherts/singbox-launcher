@@ -364,6 +364,29 @@ func TestParseNode_SkipFilters(t *testing.T) {
 			t.Errorf("Expected flow 'xtls-rprx-vision', got '%s'", node.Flow)
 		}
 	})
+
+	t.Run("Convert xtls-rprx-vision-udp443 to compatible format", func(t *testing.T) {
+		uriWithFlow := "vless://uuid@example.com:443?flow=xtls-rprx-vision-udp443&sni=example.com&fp=chrome#🇩🇪 Germany"
+		node, err := ParseNode(uriWithFlow, nil)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if node == nil {
+			t.Fatal("Expected node to be parsed, but got nil")
+		}
+
+		outbound := node.Outbound
+		if outbound["flow"] != "xtls-rprx-vision" {
+			t.Errorf("Expected flow 'xtls-rprx-vision', got '%v'", outbound["flow"])
+		}
+		if outbound["packet_encoding"] != "xudp" {
+			t.Errorf("Expected packet_encoding 'xudp', got '%v'", outbound["packet_encoding"])
+		}
+		// Verify that original flow value is still stored in node.Flow for filtering
+		if node.Flow != "xtls-rprx-vision-udp443" {
+			t.Errorf("Expected node.Flow to be 'xtls-rprx-vision-udp443' (for filtering), got '%s'", node.Flow)
+		}
+	})
 }
 
 // TestParseNode_RealWorldExamples tests with real-world examples from subscription

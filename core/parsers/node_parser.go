@@ -331,7 +331,14 @@ func buildOutbound(node *ParsedNode) map[string]interface{} {
 	if node.Scheme == "vless" {
 		outbound["uuid"] = node.UUID
 		if node.Flow != "" {
-			outbound["flow"] = node.Flow
+			// Convert xtls-rprx-vision-udp443 to compatible format
+			if node.Flow == "xtls-rprx-vision-udp443" {
+				outbound["flow"] = "xtls-rprx-vision"
+				outbound["packet_encoding"] = "xudp"
+				outbound["server_port"] = 443
+			} else {
+				outbound["flow"] = node.Flow
+			}
 		}
 
 		// Build TLS structure with correct field order

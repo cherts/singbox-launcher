@@ -507,7 +507,23 @@ When you click the **"Update Config"** button in the "Core" tab (or use the Conf
    **`skip` filter** (at subscription level):
    - If a node matches any filter from `skip` - it is skipped
    - Example: `"skip": [ { "tag": "!/🇷🇺/i" } ]` - skip all non-Russian proxies
-   - Example: `"skip": [ { "flow": "/xtls-rprx-vision-udp443/i" } ]` - skip nodes with unsupported flow parameter
+   - Example: `"skip": [ { "flow": "/xtls-rprx-vision-udp443/i" } ]` - skip nodes with specific flow parameter
+   
+   **Note:** Nodes with `flow: "xtls-rprx-vision-udp443"` are automatically converted to compatible format:
+   - `flow: "xtls-rprx-vision"` + `packet_encoding: "xudp"` (compatible with sing-box)
+   - This conversion happens before skip filters are applied, so you can still filter by original flow value
+   - Example converted outbound:
+     ```json
+     {
+       "type": "vless",
+       "server": "example.com",
+       "server_port": 443,
+       "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+       "flow": "xtls-rprx-vision",
+       "packet_encoding": "xudp",
+       "tls": { ... }
+     }
+     ```
    
    **`proxies` filter** (at selector level):
    - Determines which nodes will be included in a specific selector
