@@ -163,7 +163,9 @@ func CreateCoreDashboardTab(ac *core.AppController) fyne.CanvasObject {
 
 	// Первоначальное обновление
 	tab.updateBinaryStatus() // Проверяет наличие бинарника и вызывает updateRunningStatus
-	tab.updateVersionInfo()
+	if err := tab.updateVersionInfo(); err != nil {
+		log.Printf("updateVersionInfo: %v", err)
+	}
 	if runtime.GOOS == "windows" {
 		tab.updateWintunStatus() // Проверяет наличие wintun.dll
 	}
@@ -519,7 +521,9 @@ func (tab *CoreDashboardTab) readConfigOnDemand() {
 
 func (tab *CoreDashboardTab) updateConfigInfo() {
 	// Обновляем статусы sing-box и wintun.dll
-	tab.updateVersionInfo()
+	if err := tab.updateVersionInfo(); err != nil {
+		log.Printf("updateVersionInfo: %v", err)
+	}
 	if runtime.GOOS == "windows" {
 		tab.updateWintunStatus()
 	}
@@ -689,7 +693,7 @@ func (tab *CoreDashboardTab) downloadConfigTemplate() {
 			})
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			fyne.Do(func() {
 				if tab.templateDownloadButton != nil {
@@ -796,15 +800,18 @@ func (tab *CoreDashboardTab) startDownloadWithVersion(targetVersion string) {
 				progressValue := float64(progress.Progress) / 100.0
 				tab.setSingboxState("", "", progressValue)
 
-				if progress.Status == "done" {
+				switch progress.Status {
+				case "done":
 					tab.downloadInProgress = false
 					// Обновляем статусы после успешного скачивания (это уберет ошибки и обновит статус)
-					tab.updateVersionInfo()
+					if err := tab.updateVersionInfo(); err != nil {
+						log.Printf("updateVersionInfo: %v", err)
+					}
 					tab.updateBinaryStatus() // Это вызовет updateRunningStatus() и обновит статус
 					// Обновляем иконку трея (может измениться с красной на черную/зеленую)
 					tab.controller.UpdateUI()
 					ShowInfo(tab.controller.MainWindow, "Download Complete", progress.Message)
-				} else if progress.Status == "error" {
+				case "error":
 					tab.downloadInProgress = false
 					tab.setSingboxState("", "Download", -1)
 					ShowError(tab.controller.MainWindow, progress.Error)
@@ -818,8 +825,6 @@ func (tab *CoreDashboardTab) startDownloadWithVersion(targetVersion string) {
 func (tab *CoreDashboardTab) startAutoUpdate() {
 	// Запускаем периодическое обновление с умной логикой
 	go func() {
-		rand.Seed(time.Now().UnixNano()) // Инициализация генератора случайных чисел
-
 		for {
 			select {
 			case <-tab.stopAutoUpdate:
@@ -840,7 +845,9 @@ func (tab *CoreDashboardTab) startAutoUpdate() {
 				case <-time.After(delay):
 					// Обновляем только версию асинхронно (не блокируем UI)
 					// updateVersionInfo теперь полностью асинхронная
-					tab.updateVersionInfo()
+					if err := tab.updateVersionInfo(); err != nil {
+						log.Printf("updateVersionInfo: %v", err)
+					}
 					// Устанавливаем успех после небольшой задержки
 					// (в реальности нужно отслеживать через канал, но для простоты используем задержку)
 					go func() {
@@ -944,11 +951,12 @@ func (tab *CoreDashboardTab) handleWintunDownload() {
 				progressValue := float64(progress.Progress) / 100.0
 				tab.setWintunState("", "", progressValue)
 
-				if progress.Status == "done" {
+				switch progress.Status {
+				case "done":
 					tab.wintunDownloadInProgress = false
 					tab.updateWintunStatus() // Обновляет статус и управляет кнопкой
 					ShowInfo(tab.controller.MainWindow, "Download Complete", progress.Message)
-				} else if progress.Status == "error" {
+				case "error":
 					tab.wintunDownloadInProgress = false
 					tab.setWintunState("", "Download wintun.dll", -1)
 					ShowError(tab.controller.MainWindow, progress.Error)

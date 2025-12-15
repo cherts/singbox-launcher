@@ -213,7 +213,7 @@ func TestProcessProxySource_InvalidLinks(t *testing.T) {
 		nodes, err := svc.ProcessProxySource(proxySource, tagCounts, nil, 0, 1)
 		// Should handle invalid links gracefully
 		if err != nil {
-			// Error is acceptable for invalid links
+			t.Logf("Expected error for invalid link: %v", err)
 		}
 		// Should return empty nodes or skip invalid ones
 		_ = nodes

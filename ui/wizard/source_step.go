@@ -1,5 +1,4 @@
 //go:build !wizard_standalone
-// +build !wizard_standalone
 
 package wizard
 
@@ -203,14 +202,14 @@ func checkURL(state *ui.WizardState) {
 // parseConfig запускает парсинг конфига
 func parseConfig(state *ui.WizardState) {
 	if state.Controller == nil || state.Controller.ConfigService == nil {
-		dialogs.ShowError(state.Window, fmt.Errorf("Internal error: ConfigService not initialized"))
+		dialogs.ShowError(state.Window, fmt.Errorf("internal error: ConfigService not initialized"))
 		return
 	}
 
 	// 1. Update ParserConfig from UI
 	parserConfigJSON := state.ParserConfigEntry.Text
 	if parserConfigJSON == "" {
-		dialogs.ShowError(state.Window, fmt.Errorf("Parser configuration is empty"))
+		dialogs.ShowError(state.Window, fmt.Errorf("parser configuration is empty"))
 		return
 	}
 

@@ -24,7 +24,7 @@ func checkSTUN(serverAddr string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to dial STUN server: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Создаем STUN клиент
 	c, err := stun.NewClient(conn)
@@ -32,7 +32,7 @@ func checkSTUN(serverAddr string) (string, error) {
 		return "", fmt.Errorf("failed to create STUN client: %w", err)
 	}
 	// Гарантируем корректное освобождение внутренних горутин и ресурсов клиента
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	// Создаем сообщение для запроса
 	message := stun.MustBuild(stun.TransactionID, stun.BindingRequest)
@@ -97,7 +97,7 @@ func CreateDiagnosticsTab(ac *core.AppController) fyne.CanvasObject {
 					// Создаем кастомный диалог с кнопкой "Copy"
 					resultLabel := widget.NewLabel(fmt.Sprintf("Your External IP: %s\n(determined via [UDP]%s)", ip, stunServer))
 					copyButton := widget.NewButton("Copy IP", func() {
-						ac.MainWindow.Clipboard().SetContent(ip)
+						ac.Application.Clipboard().SetContent(ip)
 						ShowAutoHideInfo(ac.Application, ac.MainWindow, "Copied", "IP address copied to clipboard.")
 					})
 

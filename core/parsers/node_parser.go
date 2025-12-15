@@ -48,7 +48,6 @@ func ParseNode(uri string, skipFilters []map[string]string) (*ParsedNode, error)
 
 	// Handle VMess base64 format
 	if strings.HasPrefix(uri, "vmess://") {
-		scheme = "vmess"
 		// VMess is in base64 format, decode with padding support
 		base64Part := strings.TrimPrefix(uri, "vmess://")
 
@@ -328,7 +327,8 @@ func buildOutbound(node *ParsedNode) map[string]interface{} {
 	outbound["server"] = node.Server
 	outbound["server_port"] = node.Port
 
-	if node.Scheme == "vless" {
+	switch node.Scheme {
+	case "vless":
 		outbound["uuid"] = node.UUID
 		if node.Flow != "" {
 			// Convert xtls-rprx-vision-udp443 to compatible format
@@ -371,7 +371,8 @@ func buildOutbound(node *ParsedNode) map[string]interface{} {
 		}
 
 		outbound["tls"] = tlsData
-	} else if node.Scheme == "vmess" {
+
+	case "vmess":
 		outbound["uuid"] = node.UUID
 
 		if security := node.Query.Get("security"); security != "" {
@@ -439,9 +440,11 @@ func buildOutbound(node *ParsedNode) map[string]interface{} {
 
 			outbound["tls"] = tlsData
 		}
-	} else if node.Scheme == "trojan" {
+
+	case "trojan":
 		outbound["password"] = node.UUID
-	} else if node.Scheme == "ss" {
+
+	case "ss":
 		if method := node.Query.Get("method"); method != "" {
 			outbound["method"] = method
 		}

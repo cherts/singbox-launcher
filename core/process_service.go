@@ -69,7 +69,7 @@ func (svc *ProcessService) Start(skipRunningCheck ...bool) {
 	// Check capabilities on Linux before starting
 	if suggestion := platform.CheckAndSuggestCapabilities(ac.SingboxPath); suggestion != "" {
 		log.Printf("startSingBox: Capabilities check failed: %s", suggestion)
-		dialogs.ShowError(ac.MainWindow, fmt.Errorf("Linux capabilities required\n\n%s", suggestion))
+		dialogs.ShowError(ac.MainWindow, fmt.Errorf("linux capabilities required: %s", suggestion))
 		return
 	}
 
@@ -200,7 +200,7 @@ func (svc *ProcessService) Monitor(cmdToMonitor *exec.Cmd) {
 
 	if ac.ConsecutiveCrashAttempts > restartAttempts {
 		log.Printf("monitorSingBox: Maximum restart attempts (%d) reached. Stopping auto-restart.", restartAttempts)
-		dialogs.ShowError(ac.MainWindow, fmt.Errorf("Sing-Box failed to restart after %d attempts. Check sing-box.log for details.", restartAttempts))
+		dialogs.ShowError(ac.MainWindow, fmt.Errorf("sing-box failed to restart after %d attempts; check sing-box.log for details", restartAttempts))
 		ac.ConsecutiveCrashAttempts = 0
 		return
 	}

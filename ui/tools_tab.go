@@ -49,7 +49,7 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 	versionLabel.Alignment = fyne.TextAlignCenter
 
 	telegramLink := widget.NewHyperlink("💬 Telegram Channel", nil)
-	telegramLink.SetURLFromString("https://t.me/singbox_launcher")
+	_ = telegramLink.SetURLFromString("https://t.me/singbox_launcher")
 	telegramLink.OnTapped = func() {
 		if err := platform.OpenURL("https://t.me/singbox_launcher"); err != nil {
 			log.Printf("toolsTab: Failed to open Telegram link: %v", err)
@@ -58,7 +58,7 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 	}
 
 	githubLink := widget.NewHyperlink("🐙 GitHub Repository", nil)
-	githubLink.SetURLFromString("https://github.com/Leadaxe/singbox-launcher")
+	_ = githubLink.SetURLFromString("https://github.com/Leadaxe/singbox-launcher")
 	githubLink.OnTapped = func() {
 		if err := platform.OpenURL("https://github.com/Leadaxe/singbox-launcher"); err != nil {
 			log.Printf("toolsTab: Failed to open GitHub link: %v", err)

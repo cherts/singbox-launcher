@@ -77,7 +77,7 @@ func FetchSubscription(url string) ([]byte, error) {
 		}
 		return nil, fmt.Errorf("failed to fetch subscription: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	log.Printf("[DEBUG] FetchSubscription: Received HTTP response in %v (status: %d, content-length: %d)",
 		doDuration, resp.StatusCode, resp.ContentLength)
 

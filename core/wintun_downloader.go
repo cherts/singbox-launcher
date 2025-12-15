@@ -54,7 +54,7 @@ func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan cha
 		}
 		return
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// 2. Скачиваем ZIP архив
 	zipURL := fmt.Sprintf(WinTunDownloadURL, WinTunVersion)
@@ -76,11 +76,12 @@ func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan cha
 
 	// Определяем архитектуру
 	var archDir string
-	if runtime.GOARCH == "amd64" {
+	switch runtime.GOARCH {
+	case "amd64":
 		archDir = "amd64"
-	} else if runtime.GOARCH == "arm64" {
+	case "arm64":
 		archDir = "arm64"
-	} else {
+	default:
 		progressChan <- DownloadProgress{
 			Progress: 0,
 			Message:  fmt.Sprintf("Unsupported architecture: %s", runtime.GOARCH),
@@ -101,7 +102,7 @@ func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan cha
 		}
 		return
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	// Ищем wintun.dll в нужной директории
 	var dllPath string
@@ -118,13 +119,13 @@ func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan cha
 			dllPath = filepath.Join(tempDir, "wintun.dll")
 			outFile, err := os.Create(dllPath)
 			if err != nil {
-				rc.Close()
+				_ = rc.Close()
 				continue
 			}
 
 			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			rc.Close()
+			_ = outFile.Close()
+			_ = rc.Close()
 
 			if err != nil {
 				continue
@@ -170,7 +171,7 @@ func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan cha
 		}
 		return
 	}
-	defer sourceFile.Close()
+	defer func() { _ = sourceFile.Close() }()
 
 	destFile, err := os.Create(ac.WintunPath)
 	if err != nil {
@@ -182,7 +183,7 @@ func (ac *AppController) DownloadWintunDLL(ctx context.Context, progressChan cha
 		}
 		return
 	}
-	defer destFile.Close()
+	defer func() { _ = destFile.Close() }()
 
 	_, err = io.Copy(destFile, sourceFile)
 	if err != nil {

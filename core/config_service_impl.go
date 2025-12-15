@@ -62,7 +62,7 @@ func LogDuplicateTagStatistics(tagCounts map[string]int, logPrefix string) {
 	if duplicateCount > 0 {
 		log.Printf("%s: Found %d tags with duplicates, all have been renamed", logPrefix, duplicateCount)
 	} else {
-		log.Printf("%s: No duplicate tags found, all tags are unique", logPrefix, duplicateCount)
+		log.Printf("%s: No duplicate tags found, all tags are unique", logPrefix)
 	}
 }
 
@@ -362,9 +362,10 @@ func (svc *ConfigService) GenerateNodeJSON(node *parsers.ParsedNode) (string, er
 	parts = append(parts, fmt.Sprintf(`"tag":%q`, node.Tag))
 
 	// 2. type
-	if node.Scheme == "ss" {
+	switch node.Scheme {
+	case "ss":
 		parts = append(parts, fmt.Sprintf(`"type":%q`, "shadowsocks"))
-	} else {
+	default:
 		parts = append(parts, fmt.Sprintf(`"type":%q`, node.Scheme))
 	}
 
@@ -375,7 +376,8 @@ func (svc *ConfigService) GenerateNodeJSON(node *parsers.ParsedNode) (string, er
 	parts = append(parts, fmt.Sprintf(`"server_port":%d`, node.Port))
 
 	// 5. uuid (for vless/vmess) or password (for trojan) or method/password (for ss)
-	if node.Scheme == "vless" || node.Scheme == "vmess" {
+	switch node.Scheme {
+	case "vless", "vmess":
 		parts = append(parts, fmt.Sprintf(`"uuid":%q`, node.UUID))
 
 		// For VMESS add additional fields
@@ -415,9 +417,11 @@ func (svc *ConfigService) GenerateNodeJSON(node *parsers.ParsedNode) (string, er
 				}
 			}
 		}
-	} else if node.Scheme == "trojan" {
+
+	case "trojan":
 		parts = append(parts, fmt.Sprintf(`"password":%q`, node.UUID))
-	} else if node.Scheme == "ss" {
+
+	case "ss":
 		// Extract method and password from outbound
 		if method, ok := node.Outbound["method"].(string); ok && method != "" {
 			parts = append(parts, fmt.Sprintf(`"method":%q`, method))

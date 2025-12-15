@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,9 +228,7 @@ func (ac *AppController) CheckVersionInBackground() {
 					log.Printf("CheckVersionInBackground: Successfully cached version %s, checks stopped until app restart", version)
 				}
 				return
-			}
-
-			if err != nil {
+			} else {
 				log.Printf("CheckVersionInBackground: Attempt %d failed: %v", attemptCount, err)
 			}
 		}
@@ -265,7 +264,7 @@ func (ac *AppController) getLatestVersionFromURL(url string) (string, error) {
 		}
 		return "", fmt.Errorf("check failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("check failed: HTTP %d", resp.StatusCode)
@@ -308,7 +307,7 @@ func (ac *AppController) CheckForUpdates() {
 		if err != nil {
 			log.Printf("CheckForUpdates: Failed to get latest version: %v", err)
 			fyne.Do(func() {
-				dialogs.ShowError(ac.MainWindow, fmt.Errorf("Failed to check for updates: %v", err))
+				dialogs.ShowError(ac.MainWindow, fmt.Errorf("failed to check for updates: %v", err))
 			})
 			return
 		}
@@ -320,7 +319,7 @@ func (ac *AppController) CheckForUpdates() {
 		info := ac.GetCoreVersionInfo()
 		if info.Error != "" {
 			fyne.Do(func() {
-				dialogs.ShowError(ac.MainWindow, fmt.Errorf("Error checking version: %s", info.Error))
+				dialogs.ShowError(ac.MainWindow, fmt.Errorf("error checking version: %s", info.Error))
 			})
 			return
 		}
@@ -386,10 +385,14 @@ func CompareVersions(v1, v2 string) int {
 	for i := 0; i < maxLen; i++ {
 		var num1, num2 int
 		if i < len(parts1) {
-			fmt.Sscanf(parts1[i], "%d", &num1)
+			if n, err := strconv.Atoi(parts1[i]); err == nil {
+				num1 = n
+			}
 		}
 		if i < len(parts2) {
-			fmt.Sscanf(parts2[i], "%d", &num2)
+			if n, err := strconv.Atoi(parts2[i]); err == nil {
+				num2 = n
+			}
 		}
 
 		if num1 < num2 {

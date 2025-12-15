@@ -323,13 +323,13 @@ func (ac *AppController) GracefulExit() {
 end_loop:
 
 	if ac.MainLogFile != nil {
-		ac.MainLogFile.Close()
+		_ = ac.MainLogFile.Close()
 	}
 	if ac.ChildLogFile != nil {
-		ac.ChildLogFile.Close()
+		_ = ac.ChildLogFile.Close()
 	}
 	if ac.ApiLogFile != nil {
-		ac.ApiLogFile.Close()
+		_ = ac.ApiLogFile.Close()
 	}
 
 	ac.Application.Quit()
@@ -357,7 +357,7 @@ func (ac *AppController) RunHidden(name string, args []string, logPath string, d
 			if err != nil {
 				return fmt.Errorf("RunHidden: cannot open log file '%s': %w", logPath, err)
 			}
-			defer logFile.Close()
+			defer func() { _ = logFile.Close() }()
 			cmd.Stdout = logFile
 			cmd.Stderr = logFile
 		}
@@ -459,6 +459,8 @@ func getOurPID(ac *AppController) int {
 // isSingBoxProcessRunning checks if a sing-box process is currently running on the system.
 // Uses tasklist command on Windows for more reliable process detection.
 // Returns true if process found, and the PID of found process (or -1 if not found).
+//
+//nolint:unused
 func isSingBoxProcessRunning(ac *AppController) (bool, int) {
 	processName := platform.GetProcessNameForCheck()
 	log.Printf("isSingBoxProcessRunning: Looking for process name '%s'", processName)
@@ -546,6 +548,8 @@ func parseCSVLine(line string) []string {
 }
 
 // isSingBoxProcessRunningWithPS uses ps library to check for running process
+//
+//nolint:unused
 func isSingBoxProcessRunningWithPS(ac *AppController, ourPID int) (bool, int) {
 	processes, err := ps.Processes()
 	if err != nil {
@@ -569,6 +573,8 @@ func isSingBoxProcessRunningWithPS(ac *AppController, ourPID int) (bool, int) {
 
 // checkAndShowSingBoxRunningWarning checks if sing-box is running and shows warning dialog if found.
 // Returns true if process was found and warning was shown, false otherwise.
+//
+//nolint:unused
 func checkAndShowSingBoxRunningWarning(ac *AppController, context string) bool {
 	found, foundPID := isSingBoxProcessRunning(ac)
 	if found {
@@ -581,6 +587,8 @@ func checkAndShowSingBoxRunningWarning(ac *AppController, context string) bool {
 }
 
 // getTunInterfaceName extracts TUN interface name from config.json
+//
+//nolint:unused
 func getTunInterfaceName(configPath string) (string, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -617,6 +625,8 @@ func getTunInterfaceName(configPath string) (string, error) {
 }
 
 // checkTunInterfaceExists checks if TUN interface exists on Windows
+//
+//nolint:unused
 func checkTunInterfaceExists(interfaceName string) (bool, error) {
 	if runtime.GOOS != "windows" {
 		// On Linux/macOS, TUN interfaces are managed by the OS
@@ -639,6 +649,8 @@ func checkTunInterfaceExists(interfaceName string) (bool, error) {
 }
 
 // removeTunInterface removes TUN interface on Windows before starting sing-box
+//
+//nolint:unused
 func removeTunInterface(interfaceName string) error {
 	if runtime.GOOS != "windows" {
 		// On Linux/macOS, interface is removed automatically
@@ -816,8 +828,7 @@ func ShowSingBoxAlreadyRunningWarningUtil(ac *AppController) {
 	killButton := widget.NewButton("Kill Process", nil)
 	closeButton := widget.NewButton("Close This Warning", nil)
 	content := container.NewVBox(label, killButton, closeButton)
-	var d dialog.Dialog
-	d = dialog.NewCustomWithoutButtons("Warning", content, ac.MainWindow)
+	d := dialog.NewCustomWithoutButtons("Warning", content, ac.MainWindow)
 	killButton.OnTapped = func() {
 		go func() {
 			processName := platform.GetProcessNameForCheck()

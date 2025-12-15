@@ -46,9 +46,7 @@ func IsNetworkError(err error) bool {
 		if netErr.Timeout() {
 			return true
 		}
-		if netErr.Temporary() {
-			return true
-		}
+		// netErr.Temporary() is deprecated and unreliable; rely on Timeout and other checks instead
 	}
 
 	// Проверка на отсутствие соединения

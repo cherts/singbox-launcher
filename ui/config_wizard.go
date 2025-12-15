@@ -43,7 +43,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 			controller.UpdateConfigStatusFunc()
 		}
 		// Show error to user
-		//	dialog.ShowError(fmt.Errorf("Failed to load template file:\n%v\n\nPlease ensure bin/config_template.json exists and is valid.", err), wizardWindow)
+		//	dialog.ShowError(fmt.Errorf("failed to load template file: %v", err), wizardWindow)
 		return
 	} else {
 		state.TemplateData = templateData
@@ -62,7 +62,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 	if err != nil {
 		errorLog("ConfigWizard: Failed to load config: %v", err)
 		// Показываем ошибку, но продолжаем работу с дефолтными значениями
-		dialog.ShowError(fmt.Errorf("Failed to load existing config: %w", err), wizardWindow)
+		dialog.ShowError(fmt.Errorf("failed to load existing config: %w", err), wizardWindow)
 	}
 	if !loadedConfig {
 		if state.TemplateData != nil && state.TemplateData.ParserConfig != "" {
@@ -74,7 +74,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 			}
 		} else {
 			// Нет конфига и нет шаблона - показываем ошибку и закрываем визард
-			dialog.ShowError(fmt.Errorf("No config found and template file (bin/config_template.json) is missing or invalid.\nPlease create config_template.json or ensure config.json exists."), wizardWindow)
+			dialog.ShowError(fmt.Errorf("no config found and template file (bin/config_template.json) is missing or invalid; please create config_template.json or ensure config.json exists"), wizardWindow)
 			wizardWindow.Close()
 			return
 		}
@@ -88,7 +88,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 	tabs := container.NewAppTabs(tab1Item)
 	var rulesTabItem *container.TabItem
 	var previewTabItem *container.TabItem
-	var currentTabIndex int = 0
+	currentTabIndex := 0
 	if templateTab := createTemplateTab(state); templateTab != nil {
 		rulesTabItem = container.NewTabItem("Rules", templateTab)
 		previewTabItem = container.NewTabItem("Preview", createPreviewTab(state))
@@ -110,7 +110,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 	state.PrevButton = widget.NewButton("Prev", func() {
 		if currentTabIndex > 0 {
 			currentTabIndex--
-			tabs.SelectTab(tabs.Items[currentTabIndex])
+			tabs.Select(tabs.Items[currentTabIndex])
 		}
 	})
 	state.PrevButton.Importance = widget.HighImportance
@@ -118,7 +118,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 	state.NextButton = widget.NewButton("Next", func() {
 		if currentTabIndex < len(tabs.Items)-1 {
 			currentTabIndex++
-			tabs.SelectTab(tabs.Items[currentTabIndex])
+			tabs.Select(tabs.Items[currentTabIndex])
 		}
 	})
 	state.NextButton.Importance = widget.HighImportance
@@ -167,7 +167,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 				for state.autoParseInProgress {
 					if time.Since(startTime) > maxWaitTime {
 						safeFyneDo(state.Window, func() {
-							dialog.ShowError(fmt.Errorf("Parsing timeout: operation took too long"), state.Window)
+							dialog.ShowError(fmt.Errorf("parsing timeout: operation took too long"), state.Window)
 						})
 						return
 					}
@@ -262,7 +262,8 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 		totalTabs := len(tabs.Items)
 
 		var buttonsContent fyne.CanvasObject
-		if currentTabIndex == totalTabs-1 {
+		switch currentTabIndex {
+		case totalTabs - 1:
 			// Последняя вкладка (Preview): Close слева, Prev и Save справа
 			buttonsContent = container.NewHBox(
 				state.CloseButton,
@@ -270,14 +271,14 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 				state.PrevButton,
 				saveButtonStack, // Используем стек с ProgressBar
 			)
-		} else if currentTabIndex == 0 {
+		case 0:
 			// Первая вкладка: Close слева, Next справа (Prev скрыта)
 			buttonsContent = container.NewHBox(
 				state.CloseButton,
 				layout.NewSpacer(),
 				state.NextButton,
 			)
-		} else {
+		default:
 			// Средние вкладки: Close слева, Prev и Next справа
 			buttonsContent = container.NewHBox(
 				state.CloseButton,
@@ -293,7 +294,7 @@ func ShowConfigWizard(parent fyne.Window, controller *core.AppController) {
 	updateNavigationButtons()
 
 	// Обновляем кнопки при переключении вкладок
-	tabs.OnChanged = func(item *container.TabItem) {
+	tabs.OnSelected = func(item *container.TabItem) {
 		// Обновляем индекс текущей вкладки
 		for i, tabItem := range tabs.Items {
 			if tabItem == item {
@@ -406,9 +407,9 @@ func createVLESSSourceTab(state *WizardState) fyne.CanvasObject {
 	// Создаем фиктивный Rectangle для установки размера (высота 3 строки, ширина ограничена)
 	urlEntrySizeRect := canvas.NewRectangle(color.Transparent)
 	urlEntrySizeRect.SetMinSize(fyne.NewSize(900, 60)) // Ширина 900px, высота ~3 строки (примерно 20px на строку)
-	// Обертываем в Max контейнер с Rectangle для фиксации размера
+	// Обертываем в Stack контейнер с Rectangle для фиксации размера
 	// Scroll контейнер будет ограничен этим размером и покажет скроллбары, когда содержимое не помещается
-	urlEntryWithSize := container.NewMax(
+	urlEntryWithSize := container.NewStack(
 		urlEntrySizeRect,
 		urlEntryScroll,
 	)
@@ -440,8 +441,8 @@ func createVLESSSourceTab(state *WizardState) fyne.CanvasObject {
 	// Создаем фиктивный Rectangle для установки высоты через container.NewMax
 	parserHeightRect := canvas.NewRectangle(color.Transparent)
 	parserHeightRect.SetMinSize(fyne.NewSize(0, 200)) // ~10 строк
-	// Обертываем в Max контейнер с Rectangle для фиксации высоты
-	parserConfigWithHeight := container.NewMax(
+	// Обертываем в Stack контейнер с Rectangle для фиксации высоты
+	parserConfigWithHeight := container.NewStack(
 		parserHeightRect,
 		parserConfigScroll,
 	)
@@ -505,8 +506,8 @@ func createVLESSSourceTab(state *WizardState) fyne.CanvasObject {
 	// Создаем фиктивный Rectangle для установки высоты через container.NewMax
 	previewHeightRect := canvas.NewRectangle(color.Transparent)
 	previewHeightRect.SetMinSize(fyne.NewSize(0, 200)) // ~10 строк
-	// Обертываем в Max контейнер с Rectangle для фиксации высоты
-	previewWithHeight := container.NewMax(
+	// Обертываем в Stack контейнер с Rectangle для фиксации высоты
+	previewWithHeight := container.NewStack(
 		previewHeightRect,
 		previewScroll,
 	)
@@ -657,7 +658,7 @@ func createPreviewTab(state *WizardState) fyne.CanvasObject {
 	state.TemplatePreviewEntry.OnChanged = func(text string) {
 		// Read-only поле, ничего не делаем при изменении
 	}
-	previewWithHeight := container.NewMax(
+	previewWithHeight := container.NewStack(
 		canvas.NewRectangle(color.Transparent),
 		state.TemplatePreviewEntry,
 	)
@@ -2019,6 +2020,8 @@ func (state *WizardState) getAvailableOutbounds() []string {
 }
 
 // parseNodeFromString парсит узел из строки (обертка над parsers.ParseNode)
+//
+//nolint:unused
 func parseNodeFromString(uri string, skipFilters []map[string]string) (*parsers.ParsedNode, error) {
 	return parsers.ParseNode(uri, skipFilters)
 }

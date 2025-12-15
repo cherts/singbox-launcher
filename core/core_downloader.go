@@ -66,7 +66,7 @@ func (ac *AppController) DownloadCore(ctx context.Context, version string, progr
 		progressChan <- DownloadProgress{Progress: 0, Message: fmt.Sprintf("Failed to create temp dir: %v", err), Status: "error", Error: err}
 		return
 	}
-	defer os.RemoveAll(tempDir) // Удаляем временную директорию после завершения
+	defer func() { _ = os.RemoveAll(tempDir) }() // Удаляем временную директорию после завершения
 
 	// 4. Download archive
 	archivePath := filepath.Join(tempDir, asset.Name)
@@ -135,7 +135,7 @@ func (ac *AppController) getReleaseInfoFromGitHub(ctx context.Context, version s
 		}
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -185,23 +185,26 @@ func (ac *AppController) buildSourceForgeAssets(version string) []Asset {
 	var fileName string
 	switch runtime.GOOS {
 	case "windows":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			fileName = fmt.Sprintf("sing-box-%s-windows-amd64.zip", version)
-		} else if runtime.GOARCH == "arm64" {
+		case "arm64":
 			fileName = fmt.Sprintf("sing-box-%s-windows-arm64.zip", version)
 		}
 	case "linux":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			fileName = fmt.Sprintf("sing-box-%s-linux-amd64.tar.gz", version)
-		} else if runtime.GOARCH == "arm64" {
+		case "arm64":
 			fileName = fmt.Sprintf("sing-box-%s-linux-arm64.tar.gz", version)
-		} else if runtime.GOARCH == "arm" {
+		case "arm":
 			fileName = fmt.Sprintf("sing-box-%s-linux-armv7.tar.gz", version)
 		}
 	case "darwin":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			fileName = fmt.Sprintf("sing-box-%s-darwin-amd64.tar.gz", version)
-		} else if runtime.GOARCH == "arm64" {
+		case "arm64":
 			fileName = fmt.Sprintf("sing-box-%s-darwin-arm64.tar.gz", version)
 		}
 	}
@@ -228,29 +231,32 @@ func (ac *AppController) findPlatformAsset(assets []Asset) (*Asset, error) {
 
 	switch runtime.GOOS {
 	case "windows":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			platformPattern = "windows-amd64.zip"
-		} else if runtime.GOARCH == "arm64" {
+		case "arm64":
 			platformPattern = "windows-arm64.zip"
-		} else {
+		default:
 			return nil, fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
 		}
 	case "linux":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			platformPattern = "linux-amd64.tar.gz"
-		} else if runtime.GOARCH == "arm64" {
+		case "arm64":
 			platformPattern = "linux-arm64.tar.gz"
-		} else if runtime.GOARCH == "arm" {
+		case "arm":
 			platformPattern = "linux-armv7.tar.gz"
-		} else {
+		default:
 			return nil, fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
 		}
 	case "darwin":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			platformPattern = "darwin-amd64.tar.gz"
-		} else if runtime.GOARCH == "arm64" {
+		case "arm64":
 			platformPattern = "darwin-arm64.tar.gz"
-		} else {
+		default:
 			return nil, fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
 		}
 	default:
@@ -336,7 +342,7 @@ func (ac *AppController) downloadFileFromURL(ctx context.Context, url, destPath 
 		}
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -346,7 +352,7 @@ func (ac *AppController) downloadFileFromURL(ctx context.Context, url, destPath 
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	totalSize := resp.ContentLength
 	var downloaded int64
@@ -422,7 +428,7 @@ func (ac *AppController) extractZip(archivePath, destDir string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("failed to open zip: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	singboxName := platform.GetExecutableNames()
 	var binaryPath string
@@ -438,13 +444,13 @@ func (ac *AppController) extractZip(archivePath, destDir string) (string, error)
 			binaryPath = filepath.Join(destDir, filepath.Base(f.Name))
 			outFile, err := os.Create(binaryPath)
 			if err != nil {
-				rc.Close()
+				_ = rc.Close()
 				return "", fmt.Errorf("failed to create output file: %w", err)
 			}
 
 			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			rc.Close()
+			_ = outFile.Close()
+			_ = rc.Close()
 
 			if err != nil {
 				return "", fmt.Errorf("failed to copy file: %w", err)
@@ -452,7 +458,7 @@ func (ac *AppController) extractZip(archivePath, destDir string) (string, error)
 
 			// Устанавливаем права на выполнение (для Unix-подобных систем)
 			if runtime.GOOS != "windows" {
-				os.Chmod(binaryPath, 0755)
+				_ = os.Chmod(binaryPath, 0755)
 			}
 
 			return binaryPath, nil
@@ -468,13 +474,13 @@ func (ac *AppController) extractTarGz(archivePath, destDir string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("failed to open archive: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return "", fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tr := tar.NewReader(gzr)
 	singboxName := platform.GetExecutableNames()
@@ -498,14 +504,14 @@ func (ac *AppController) extractTarGz(archivePath, destDir string) (string, erro
 			}
 
 			_, err = io.Copy(outFile, tr)
-			outFile.Close()
+			_ = outFile.Close()
 
 			if err != nil {
 				return "", fmt.Errorf("failed to copy file: %w", err)
 			}
 
 			// Устанавливаем права на выполнение
-			os.Chmod(binaryPath, 0755)
+			_ = os.Chmod(binaryPath, 0755)
 
 			return binaryPath, nil
 		}
@@ -525,7 +531,7 @@ func (ac *AppController) installBinary(sourcePath, destPath string) error {
 	// If old binary exists, rename it
 	if _, err := os.Stat(destPath); err == nil {
 		oldPath := destPath + ".old"
-		os.Remove(oldPath) // Remove old backup if exists
+		_ = os.Remove(oldPath) // Remove old backup if exists
 		if err := os.Rename(destPath, oldPath); err != nil {
 			log.Printf("Warning: failed to rename old binary: %v", err)
 		}
@@ -536,13 +542,13 @@ func (ac *AppController) installBinary(sourcePath, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer sourceFile.Close()
+	defer func() { _ = sourceFile.Close() }()
 
 	destFile, err := os.Create(destPath)
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
-	defer destFile.Close()
+	defer func() { _ = destFile.Close() }()
 
 	_, err = io.Copy(destFile, sourceFile)
 	if err != nil {
@@ -551,12 +557,12 @@ func (ac *AppController) installBinary(sourcePath, destPath string) error {
 
 	// Set execute permissions (for Unix)
 	if runtime.GOOS != "windows" {
-		os.Chmod(destPath, 0755)
+		_ = os.Chmod(destPath, 0755)
 	}
 
 	// Remove old backup
 	oldPath := destPath + ".old"
-	os.Remove(oldPath)
+	_ = os.Remove(oldPath)
 
 	log.Printf("Binary installed successfully to %s", destPath)
 	return nil

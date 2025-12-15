@@ -175,12 +175,12 @@ func main() {
 	controller.GracefulExit()
 
 	if controller.MainLogFile != nil {
-		controller.MainLogFile.Close()
+		_ = controller.MainLogFile.Close()
 	}
 	if controller.ChildLogFile != nil {
-		controller.ChildLogFile.Close()
+		_ = controller.ChildLogFile.Close()
 	}
 	if controller.ApiLogFile != nil {
-		controller.ApiLogFile.Close()
+		_ = controller.ApiLogFile.Close()
 	}
 }
