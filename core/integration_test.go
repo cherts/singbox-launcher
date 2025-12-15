@@ -269,4 +269,3 @@ func TestIntegration_ParserConfigFlow(t *testing.T) {
 		}
 	})
 }
-

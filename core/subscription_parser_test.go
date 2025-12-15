@@ -331,4 +331,3 @@ func TestIsSubscriptionURL(t *testing.T) {
 		})
 	}
 }
-

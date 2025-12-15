@@ -391,7 +391,6 @@ func (r *RunningState) Set(value bool) {
 	if r.controller.UpdateCoreStatusFunc != nil {
 		r.controller.UpdateCoreStatusFunc()
 	}
-
 }
 
 // IsRunning checks if the VPN is running.

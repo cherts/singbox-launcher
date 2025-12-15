@@ -1476,7 +1476,6 @@ func (state *WizardState) setTemplatePreviewText(text string) {
 				insertStartTime := time.Now()
 				state.TemplatePreviewEntry.SetText(text)
 				debugLog("setTemplatePreviewText: Large text inserted in %v", time.Since(insertStartTime))
-
 			})
 		}()
 	} else {
