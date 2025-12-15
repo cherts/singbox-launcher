@@ -48,6 +48,7 @@ func ParseNode(uri string, skipFilters []map[string]string) (*ParsedNode, error)
 
 	// Handle VMess base64 format
 	if strings.HasPrefix(uri, "vmess://") {
+		scheme = "vmess"
 		// VMess is in base64 format, decode with padding support
 		base64Part := strings.TrimPrefix(uri, "vmess://")
 
