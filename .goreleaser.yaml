@@ -37,19 +37,6 @@ builds:
     binary: '{{ .ProjectName }}'
 
   # ---------------------------------------------------------------------------
-  # macOS Builds (CGO Enabled)
-  # ---------------------------------------------------------------------------
-  # Requires a macOS runner.
-  - id: 'darwin'
-    goos: [darwin]
-    goarch: [amd64, arm64]
-    env: [ "CGO_ENABLED=1" ]
-    ldflags:
-      - -s -w
-    main: ./
-    binary: '{{ .ProjectName }}'
-
-  # ---------------------------------------------------------------------------
   # Windows Builds (CGO Enabled)
   # ---------------------------------------------------------------------------
   - id: 'windows'
