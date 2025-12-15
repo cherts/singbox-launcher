@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/base64"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,6 +18,10 @@ func TestProcessProxySource_Subscription(t *testing.T) {
 		ConfigPath: configPath,
 	}
 	svc := NewConfigService(ac)
+
+	// Create a test subscription content (base64 encoded)
+	subscriptionContent := "vless://test-uuid@example.com:443#Test Server\nvmess://test-base64"
+	encodedContent := base64.URLEncoding.EncodeToString([]byte(subscriptionContent))
 
 	// Note: This test would require mocking HTTP requests or using a test HTTP server
 	// For now, we'll test the logic that doesn't require network access
