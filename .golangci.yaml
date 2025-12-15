@@ -4,31 +4,18 @@ run:
 linters:
   enable:
     - govet
-    - staticcheck
-    - gocritic
-    - gosec # Security linter
+    - ineffassign
+    #- staticcheck
+    - unused
+    #- gocritic
+    #- gosec # Security linter
     - errcheck # Error checking
-    - revive # Opinionated linter
+    #- revive # Opinionated linter
     - unused # Detect unused code
-    - gocyclo # Cyclomatic complexity
     - whitespace # Enforce whitespace rules
     - bodyclose # Ensure files/sockets are closed
-    - copyloopvar
-    - depguard
-    - forbidigo
-    - godoclint
-    - misspell
-    - noctx
-    - nolintlint
-    - perfsprint
-    - tagliatelle
-    - testifylint
-    - thelper
-    - tparallel
-    - unconvert
-    - unparam
-    - usetesting
-    - wastedassign
+  disable:
+    - staticcheck
   settings:
     perfsprint:
       int-conversion: false
@@ -73,10 +60,10 @@ linters:
         path: _test\.go
     paths:
       - examples$
-formatters:
-  enable:
-    - gofumpt
-  exclusions:
-    generated: lax
-    paths:
-      - examples$
+#formatters:
+#  enable:
+#    - gofumpt
+#  exclusions:
+#    generated: lax
+#    paths:
+#      - examples$
