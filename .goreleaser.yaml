@@ -1,0 +1,76 @@
+version: 2
+project_name: singbox-launcher
+
+before:
+  hooks:
+    - go mod tidy
+    - sh -c 'git rev-parse --short HEAD > COMMIT'
+
+builds:
+  # ---------------------------------------------------------------------------
+  # Linux Builds (Pure Go / Static)
+  # ---------------------------------------------------------------------------
+  - id: 'linux'
+    goos: [linux]
+    goarch: 
+      - '386'
+      - amd64
+      - arm
+      - arm64
+    env: [ "CGO_ENABLED=1" ]
+    ldflags:
+      - -s -w
+    main: ./
+    binary: '{{ .ProjectName }}'
+
+  # ---------------------------------------------------------------------------
+  # macOS Builds (CGO Enabled)
+  # ---------------------------------------------------------------------------
+  # Requires a macOS runner.
+  - id: 'darwin'
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    env: [ "CGO_ENABLED=1" ]
+    ldflags:
+      - -s -w
+    main: ./
+    binary: '{{ .ProjectName }}'
+
+source:
+  enabled: true
+  prefix_template: '{{ .ProjectName }}-{{ .Version }}/'
+  files:
+  - COMMIT
+
+archives:
+  - id: default
+    name_template: >-
+      {{- .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "386" }}i386
+      {{- else if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end -}}
+    formats: ['tar.gz']
+    # Explicitly list builds to include (optional but good for clarity)
+    ids: ['linux', 'darwin']
+      
+# Generate Software Bill of Materials
+sboms:
+  - artifacts: archive
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+
+signs:
+- cmd: cosign
+  signature: "${artifact}.sigstore.json"
+  artifacts: checksum
+  args:
+    - sign-blob
+    - "--bundle=${signature}"
+    - "${artifact}"
+    - --yes
