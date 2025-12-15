@@ -47,9 +47,9 @@ type WizardState struct {
 	CheckURLProgress     *widget.ProgressBar
 	CheckURLPlaceholder  *canvas.Rectangle
 	CheckURLContainer    fyne.CanvasObject
-	checkURLInProgress   bool
+	CheckURLInProgress   bool
 	ParseButton          *widget.Button
-	parserConfigUpdating bool
+	ParserConfigUpdating bool
 
 	// Parsed data
 	ParserConfig       *core.ParserConfig
@@ -65,7 +65,7 @@ type WizardState struct {
 	ShowPreviewButton           *widget.Button
 	FinalOutboundSelect         *widget.Select
 	SelectedFinalOutbound       string
-	previewNeedsParse           bool
+	PreviewNeedsParse           bool
 	autoParseInProgress         bool
 	previewGenerationInProgress bool
 
