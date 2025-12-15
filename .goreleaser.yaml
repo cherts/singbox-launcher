@@ -46,7 +46,7 @@ builds:
     ldflags:
       - -H windowsgui -s -w
     main: ./
-    binary: '{{ .ProjectName }}.exe'
+    binary: '{{ .ProjectName }}'
 
 source:
   enabled: true
