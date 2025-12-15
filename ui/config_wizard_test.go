@@ -51,13 +51,7 @@ vmess://base64`
 
 	t.Run("Empty input", func(t *testing.T) {
 		state := &WizardState{}
-		state.ParserConfigEntry = &widget.Entry{Text: `{
-	"ParserConfig": {
-		"version": 2,
-		"proxies": [],
-		"outbounds": []
-	}
-}`}
+		state.ParserConfigEntry = &widget.Entry{Text: `{"ParserConfig": {"version": 2,"proxies": [],"outbounds": []}}`}
 
 		input := ""
 		lines := strings.Split(input, "\n")
