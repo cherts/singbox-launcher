@@ -8,16 +8,40 @@ before:
 
 builds:
   # ---------------------------------------------------------------------------
-  # Linux Builds (Pure Go / Static)
+  # Linux Builds (CGO Enabled)
   # ---------------------------------------------------------------------------
   - id: 'linux'
     goos: [linux]
     goarch: 
       - '386'
       - amd64
-      - arm
-      - arm64
     env: [ "CGO_ENABLED=1" ]
+    ldflags:
+      - -s -w
+    main: ./
+    binary: '{{ .ProjectName }}'
+  - id: 'linux-arm64'
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+    ldflags:
+      - -s -w
+    main: ./
+    binary: '{{ .ProjectName }}'
+  - id: 'linux-armv7'
+    goos:
+      - linux
+    goarch:
+      - arm
+    goarm:
+      - "7"
+    env:
+      - CGO_ENABLED=1
+      - CC=arm-linux-gnueabihf-gcc
     ldflags:
       - -s -w
     main: ./
@@ -69,7 +93,7 @@ archives:
       - goos: windows
         formats: [zip]
     # Explicitly list builds to include (optional but good for clarity)
-    ids: ['linux', 'darwin', 'windows']
+    ids: ['linux', 'linux-arm64', 'linux-armv7', 'darwin', 'windows']
 
 # Generate Software Bill of Materials
 sboms:
