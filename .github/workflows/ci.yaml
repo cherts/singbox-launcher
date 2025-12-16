@@ -67,6 +67,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0 # GoReleaser requires git history
 
+      - name: Setup Linux OS dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev libglu1-mesa-dev gcc-multilib
+
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
