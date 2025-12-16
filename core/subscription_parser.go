@@ -147,10 +147,8 @@ func NormalizeParserConfig(parserConfig *ParserConfig, updateLastUpdated bool) {
 		return
 	}
 
-	// Ensure version is set
-	if parserConfig.ParserConfig.Version == 0 {
-		parserConfig.ParserConfig.Version = ParserConfigVersion
-	}
+	// Ensure version is set to current version (always update to latest)
+	parserConfig.ParserConfig.Version = ParserConfigVersion
 
 	// Ensure parser object exists (create if missing)
 	// Set default reload to "4h" if not specified
@@ -169,7 +167,9 @@ type ProxySource struct {
 	Source      string              `json:"source,omitempty"`
 	Connections []string            `json:"connections,omitempty"`
 	Skip        []map[string]string `json:"skip,omitempty"`
-	Outbounds   []OutboundConfig    `json:"outbounds,omitempty"` // Local outbounds for this source (version 4)
+	Outbounds   []OutboundConfig    `json:"outbounds,omitempty"`   // Local outbounds for this source (version 4)
+	TagPrefix   string              `json:"tag_prefix,omitempty"`  // Prefix to add to all node tags from this source
+	TagPostfix  string              `json:"tag_postfix,omitempty"` // Postfix to add to all node tags from this source
 }
 
 // OutboundConfig represents an outbound selector configuration (version 3)

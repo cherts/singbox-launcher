@@ -24,6 +24,18 @@ type OutboundGenerationResult struct {
 	GlobalSelectorsCount int      // Number of global selectors
 }
 
+// applyTagPrefixPostfix applies prefix and postfix to a node tag if specified in ProxySource.
+// Returns the modified tag.
+func applyTagPrefixPostfix(tag string, tagPrefix, tagPostfix string) string {
+	if tagPrefix != "" {
+		tag = tagPrefix + tag
+	}
+	if tagPostfix != "" {
+		tag = tag + tagPostfix
+	}
+	return tag
+}
+
 // MakeTagUnique makes a tag unique by appending a number if it already exists in tagCounts.
 // Updates tagCounts map and returns the unique tag.
 // logPrefix is used for logging (e.g., "Parser" or "ConfigWizard").
@@ -146,6 +158,8 @@ func (svc *ConfigService) ProcessProxySource(proxySource ProxySource, tagCounts 
 					}
 
 					if node != nil {
+						// Apply prefix and postfix to tag if specified
+						node.Tag = applyTagPrefixPostfix(node.Tag, proxySource.TagPrefix, proxySource.TagPostfix)
 						node.Tag = MakeTagUnique(node.Tag, tagCounts, "Parser")
 						nodes = append(nodes, node)
 						nodesFromThisSource++
@@ -175,6 +189,8 @@ func (svc *ConfigService) ProcessProxySource(proxySource ProxySource, tagCounts 
 						time.Since(parseStartTime), err)
 					log.Printf("Parser: Warning: Failed to parse direct link: %v", err)
 				} else if node != nil {
+					// Apply prefix and postfix to tag if specified
+					node.Tag = applyTagPrefixPostfix(node.Tag, proxySource.TagPrefix, proxySource.TagPostfix)
 					node.Tag = MakeTagUnique(node.Tag, tagCounts, "Parser")
 					nodes = append(nodes, node)
 					nodesFromThisSource++
@@ -223,6 +239,8 @@ func (svc *ConfigService) ProcessProxySource(proxySource ProxySource, tagCounts 
 		}
 
 		if node != nil {
+			// Apply prefix and postfix to tag if specified
+			node.Tag = applyTagPrefixPostfix(node.Tag, proxySource.TagPrefix, proxySource.TagPostfix)
 			node.Tag = MakeTagUnique(node.Tag, tagCounts, "Parser")
 			nodes = append(nodes, node)
 			nodesFromThisSource++
