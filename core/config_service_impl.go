@@ -760,6 +760,9 @@ func (svc *ConfigService) UpdateConfigFromSubscriptions() error {
 
 	updateParserProgress(ac, 100, "Configuration updated successfully!")
 
+	// Resume auto-update after successful update
+	ac.resumeAutoUpdate()
+
 	return nil
 }
 

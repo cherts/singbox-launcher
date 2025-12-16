@@ -18,8 +18,8 @@
               "interrupt_exist_connections": true
             },
             "filters": { "tag": "!/(🇷🇺)/i" },
-			      "comment": "Proxy automated group for everything that should go through VPN"
-		      },
+            "comment": "Proxy automated group for everything that should go through VPN"
+          },
           {
             "tag": "proxy-out",
             "type": "selector",
