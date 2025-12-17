@@ -263,11 +263,8 @@ func NewAppController(appIconData, greyIconData, greenIconData, redIconData []by
 	if _, err := os.Stat(ac.ConfigPath); os.IsNotExist(err) {
 		log.Printf("Auto-update: Config file does not exist (%s), auto-update disabled", ac.ConfigPath)
 		ac.AutoUpdateEnabled = false
-	} else {
-		// Start auto-update goroutine only if config exists
-		go ac.startAutoUpdateLoop()
 	}
-
+	go ac.startAutoUpdateLoop()
 	return ac, nil
 }
 
@@ -1198,10 +1195,7 @@ func (ac *AppController) startAutoUpdateLoop() {
 		}
 
 		// Check if auto-update is enabled
-		ac.AutoUpdateMutex.Lock()
-		ac.AutoUpdateMutex.Unlock()
 		if !ac.AutoUpdateEnabled {
-			ac.AutoUpdateMutex.Unlock()
 			// Auto-update is stopped, wait and check again
 			select {
 			case <-ac.ctx.Done():
@@ -1210,7 +1204,6 @@ func (ac *AppController) startAutoUpdateLoop() {
 				continue
 			}
 		}
-		ac.AutoUpdateMutex.Unlock()
 
 		// Calculate check interval from config
 		checkInterval, err := ac.calculateAutoUpdateInterval()
