@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -40,13 +43,59 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 		}()
 	})
 
-	checkUpdatesButton := widget.NewButton("🔄 Check for Updates", func() {
-		ac.CheckForUpdates()
-	})
-
 	// Version and links section
 	versionLabel := widget.NewLabel("📦 Version: " + constants.AppVersion)
 	versionLabel.Alignment = fyne.TextAlignCenter
+
+	// Launcher update status
+	launcherUpdateLabel := widget.NewLabel("Checking for updates...")
+	launcherUpdateLabel.Alignment = fyne.TextAlignCenter
+	launcherUpdateLabel.Wrapping = fyne.TextWrapWord
+
+	// Update launcher version info
+	updateLauncherVersionInfo := func() {
+		latest := ac.GetCachedLauncherVersion()
+		current := constants.AppVersion
+		
+		if latest == "" {
+			launcherUpdateLabel.SetText("Unable to check for updates")
+			return
+		}
+
+		// Сравниваем версии (убираем префикс v для сравнения)
+		currentClean := strings.TrimPrefix(current, "v")
+		latestClean := strings.TrimPrefix(latest, "v")
+		
+		compareResult := core.CompareVersions(currentClean, latestClean)
+		if compareResult < 0 {
+			// Новая версия доступна
+			launcherUpdateLabel.SetText(fmt.Sprintf("🆕 Update available: %s\nCurrent: %s", latest, current))
+		} else if compareResult > 0 {
+			// Текущая версия новее (dev build)
+			launcherUpdateLabel.SetText(fmt.Sprintf("✅ You are using a development build\nCurrent: %s\nLatest release: %s", current, latest))
+		} else {
+			// Версии совпадают
+			launcherUpdateLabel.SetText(fmt.Sprintf("✅ You are using the latest version\nCurrent: %s", current))
+		}
+	}
+
+	// Обновляем информацию при создании вкладки
+	updateLauncherVersionInfo()
+
+	// Периодически обновляем информацию (если версия еще не получена)
+	go func() {
+		for i := 0; i < 10; i++ {
+			time.Sleep(2 * time.Second)
+			fyne.Do(func() {
+				if ac.GetCachedLauncherVersion() == "" {
+					updateLauncherVersionInfo()
+				} else {
+					updateLauncherVersionInfo()
+					return
+				}
+			})
+		}
+	}()
 
 	telegramLink := widget.NewHyperlink("💬 Telegram Channel", nil)
 	telegramLink.SetURLFromString("https://t.me/singbox_launcher")
@@ -71,9 +120,9 @@ func CreateToolsTab(ac *core.AppController) fyne.CanvasObject {
 		configButton,
 		killButton,
 		widget.NewSeparator(),
-		checkUpdatesButton,
-		widget.NewSeparator(),
 		versionLabel,
+		launcherUpdateLabel,
+		widget.NewSeparator(),
 		container.NewHBox(
 			telegramLink,
 			widget.NewLabel(" | "),

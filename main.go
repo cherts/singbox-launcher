@@ -44,6 +44,9 @@ func main() {
 		log.Fatalf("Failed to initialize application: %v", err)
 	}
 
+	// Check launcher version on startup
+	controller.CheckLauncherVersionOnStartup()
+
 	// Configure the system tray if the application is running on a Desktop platform.
 	if desk, ok := controller.Application.(desktop.App); ok {
 		// Set a handler that fires when the application is fully ready

@@ -102,6 +102,76 @@ func (ac *AppController) GetLatestCoreVersion() (string, error) {
 	return FallbackVersion, nil
 }
 
+// GetLatestLauncherVersion получает последнюю версию приложения из GitHub
+func (ac *AppController) GetLatestLauncherVersion() (string, error) {
+	sources := []struct {
+		name string
+		url  string
+	}{
+		{"GitHub API", "https://api.github.com/repos/Leadaxe/singbox-launcher/releases/latest"},
+		{"GitHub Mirror (ghproxy)", "https://ghproxy.com/https://api.github.com/repos/Leadaxe/singbox-launcher/releases/latest"},
+	}
+
+	for _, source := range sources {
+		log.Printf("Trying to get latest launcher version from %s...", source.name)
+		// Сохраняем префикс "v" для launcher версии
+		version, err := ac.getLatestVersionFromURLWithPrefix(source.url, true)
+		if err == nil {
+			log.Printf("Successfully got latest launcher version %s from %s", version, source.name)
+			return version, nil
+		}
+		log.Printf("Failed to get latest launcher version from %s: %v", source.name, err)
+	}
+
+	return "", fmt.Errorf("failed to get latest launcher version from all sources")
+}
+
+// GetCachedLauncherVersion возвращает закешированную версию launcher (если есть)
+func (ac *AppController) GetCachedLauncherVersion() string {
+	ac.LauncherVersionCheckMutex.RLock()
+	defer ac.LauncherVersionCheckMutex.RUnlock()
+	return ac.LauncherVersionCheckCache
+}
+
+// SetCachedLauncherVersion сохраняет версию launcher в кеш
+func (ac *AppController) SetCachedLauncherVersion(version string) {
+	ac.LauncherVersionCheckMutex.Lock()
+	defer ac.LauncherVersionCheckMutex.Unlock()
+	ac.LauncherVersionCheckCache = version
+	ac.LauncherVersionCheckCacheTime = time.Now()
+}
+
+// CheckLauncherVersionOnStartup выполняет разовую проверку версии launcher при старте
+func (ac *AppController) CheckLauncherVersionOnStartup() {
+	// Проверяем, не идет ли уже проверка
+	ac.LauncherVersionCheckMutex.Lock()
+	if ac.LauncherVersionCheckInProgress {
+		ac.LauncherVersionCheckMutex.Unlock()
+		return
+	}
+	ac.LauncherVersionCheckInProgress = true
+	ac.LauncherVersionCheckMutex.Unlock()
+
+	go func() {
+		defer func() {
+			ac.LauncherVersionCheckMutex.Lock()
+			ac.LauncherVersionCheckInProgress = false
+			ac.LauncherVersionCheckMutex.Unlock()
+		}()
+
+		// Пытаемся получить последнюю версию
+		latest, err := ac.GetLatestLauncherVersion()
+		if err != nil {
+			log.Printf("CheckLauncherVersionOnStartup: Failed to get latest launcher version: %v", err)
+			return
+		}
+
+		// Сохраняем в кеш
+		ac.SetCachedLauncherVersion(latest)
+		log.Printf("CheckLauncherVersionOnStartup: Successfully cached launcher version %s", latest)
+	}()
+}
+
 // ShouldCheckVersion проверяет, нужно ли проверять версию
 // Если версия успешно получена (не FallbackVersion), проверки прекращаются до перезапуска приложения
 func (ac *AppController) ShouldCheckVersion() bool {
@@ -242,6 +312,12 @@ func (ac *AppController) CheckVersionInBackground() {
 
 // getLatestVersionFromURL получает последнюю версию по конкретному URL
 func (ac *AppController) getLatestVersionFromURL(url string) (string, error) {
+	return ac.getLatestVersionFromURLWithPrefix(url, false)
+}
+
+// getLatestVersionFromURLWithPrefix получает последнюю версию по конкретному URL
+// keepPrefix: если true, сохраняет префикс "v" в версии
+func (ac *AppController) getLatestVersionFromURLWithPrefix(url string, keepPrefix bool) (string, error) {
 	// Создаем контекст с таймаутом
 	ctx, cancel := context.WithTimeout(context.Background(), NetworkRequestTimeout)
 	defer cancel()
@@ -284,8 +360,11 @@ func (ac *AppController) getLatestVersionFromURL(url string) (string, error) {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Убираем префикс "v" если есть
-	version := strings.TrimPrefix(release.TagName, "v")
+	// Убираем префикс "v" если нужно (для sing-box убираем, для launcher сохраняем)
+	version := release.TagName
+	if !keepPrefix {
+		version = strings.TrimPrefix(version, "v")
+	}
 	return version, nil
 }
 

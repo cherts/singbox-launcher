@@ -122,6 +122,12 @@ type AppController struct {
 	VersionCheckMutex      sync.RWMutex // Mutex for version check cache
 	VersionCheckInProgress bool         // Flag to prevent multiple version checks
 
+	// --- Launcher version check caching ---
+	LauncherVersionCheckCache      string       // Cached latest launcher version
+	LauncherVersionCheckCacheTime  time.Time    // Time when launcher version was successfully checked
+	LauncherVersionCheckMutex      sync.RWMutex // Mutex for launcher version check cache
+	LauncherVersionCheckInProgress bool         // Flag to prevent multiple launcher version checks
+
 	// --- Context for goroutine cancellation ---
 	ctx        context.Context    // Context for cancellation
 	cancelFunc context.CancelFunc // Cancel function for stopping goroutines
