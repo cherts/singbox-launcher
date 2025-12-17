@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,15 +26,67 @@ type OutboundGenerationResult struct {
 }
 
 // applyTagPrefixPostfix applies prefix and postfix to a node tag if specified in ProxySource.
+// If tagMask is set, it replaces the entire tag and ignores prefix/postfix.
+// Supports variable substitution in prefix, postfix, and mask.
 // Returns the modified tag.
-func applyTagPrefixPostfix(tag string, tagPrefix, tagPostfix string) string {
+func applyTagPrefixPostfix(node *parsers.ParsedNode, tagPrefix, tagPostfix, tagMask string, nodeNum int) string {
+	// If tag_mask is set, use it to replace the entire tag (ignores prefix/postfix)
+	if tagMask != "" {
+		return replaceTagVariables(tagMask, node, nodeNum)
+	}
+
+	tag := node.Tag
+
+	// Replace variables in prefix
 	if tagPrefix != "" {
-		tag = tagPrefix + tag
+		prefix := replaceTagVariables(tagPrefix, node, nodeNum)
+		tag = prefix + tag
 	}
+
+	// Replace variables in postfix
 	if tagPostfix != "" {
-		tag = tag + tagPostfix
+		postfix := replaceTagVariables(tagPostfix, node, nodeNum)
+		tag = tag + postfix
 	}
+
 	return tag
+}
+
+// replaceTagVariables replaces variables in tag prefix/postfix with actual values from node.
+// Supported variables:
+//   - {$tag} - original node tag
+//   - {$scheme} or {$protocol} - protocol (vless, vmess, trojan, ss, hysteria2)
+//   - {$server} - server address
+//   - {$port} - server port (number)
+//   - {$label} - label from URL (fragment after #)
+//   - {$comment} - comment
+//   - {$num} - node sequential number starting from 1
+func replaceTagVariables(template string, node *parsers.ParsedNode, nodeNum int) string {
+	result := template
+
+	// Replace {$tag}
+	result = strings.ReplaceAll(result, "{$tag}", node.Tag)
+
+	// Replace {$scheme} or {$protocol}
+	result = strings.ReplaceAll(result, "{$scheme}", node.Scheme)
+	result = strings.ReplaceAll(result, "{$protocol}", node.Scheme)
+
+	// Replace {$server}
+	result = strings.ReplaceAll(result, "{$server}", node.Server)
+
+	// Replace {$port}
+	result = strings.ReplaceAll(result, "{$port}", strconv.Itoa(node.Port))
+
+	// Replace {$label}
+	result = strings.ReplaceAll(result, "{$label}", node.Label)
+
+	// Replace {$comment}
+	result = strings.ReplaceAll(result, "{$comment}", node.Comment)
+
+	// Replace {$num}
+	result = strings.ReplaceAll(result, "{$num}", strconv.Itoa(nodeNum))
+
+	return result
 }
 
 // MakeTagUnique makes a tag unique by appending a number if it already exists in tagCounts.
@@ -158,8 +211,8 @@ func (svc *ConfigService) ProcessProxySource(proxySource ProxySource, tagCounts 
 					}
 
 					if node != nil {
-						// Apply prefix and postfix to tag if specified
-						node.Tag = applyTagPrefixPostfix(node.Tag, proxySource.TagPrefix, proxySource.TagPostfix)
+						// Apply prefix, postfix, or mask to tag if specified (with variable substitution)
+						node.Tag = applyTagPrefixPostfix(node, proxySource.TagPrefix, proxySource.TagPostfix, proxySource.TagMask, nodesFromThisSource+1)
 						node.Tag = MakeTagUnique(node.Tag, tagCounts, "Parser")
 						nodes = append(nodes, node)
 						nodesFromThisSource++
@@ -189,8 +242,8 @@ func (svc *ConfigService) ProcessProxySource(proxySource ProxySource, tagCounts 
 						time.Since(parseStartTime), err)
 					log.Printf("Parser: Warning: Failed to parse direct link: %v", err)
 				} else if node != nil {
-					// Apply prefix and postfix to tag if specified
-					node.Tag = applyTagPrefixPostfix(node.Tag, proxySource.TagPrefix, proxySource.TagPostfix)
+					// Apply prefix, postfix, or mask to tag if specified (with variable substitution)
+					node.Tag = applyTagPrefixPostfix(node, proxySource.TagPrefix, proxySource.TagPostfix, proxySource.TagMask, nodesFromThisSource+1)
 					node.Tag = MakeTagUnique(node.Tag, tagCounts, "Parser")
 					nodes = append(nodes, node)
 					nodesFromThisSource++
@@ -239,8 +292,8 @@ func (svc *ConfigService) ProcessProxySource(proxySource ProxySource, tagCounts 
 		}
 
 		if node != nil {
-			// Apply prefix and postfix to tag if specified
-			node.Tag = applyTagPrefixPostfix(node.Tag, proxySource.TagPrefix, proxySource.TagPostfix)
+			// Apply prefix, postfix, or mask to tag if specified (with variable substitution)
+			node.Tag = applyTagPrefixPostfix(node, proxySource.TagPrefix, proxySource.TagPostfix, proxySource.TagMask, nodesFromThisSource+1)
 			node.Tag = MakeTagUnique(node.Tag, tagCounts, "Parser")
 			nodes = append(nodes, node)
 			nodesFromThisSource++

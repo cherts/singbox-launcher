@@ -86,8 +86,6 @@ func ParseNode(uri string, skipFilters []map[string]string) (*ParsedNode, error)
 		scheme = "trojan"
 	} else if strings.HasPrefix(uri, "ss://") {
 		scheme = "ss"
-	} else if strings.HasPrefix(uri, "hysteria2://") {
-		scheme = "hysteria2"
 
 		// SS links in SIP002 format: ss://base64(method:password)@server:port#tag
 		ssPart := strings.TrimPrefix(uri, "ss://")
@@ -126,6 +124,8 @@ func ParseNode(uri string, skipFilters []map[string]string) (*ParsedNode, error)
 		} else {
 			log.Printf("Parser: Warning: SS link is not in SIP002 format (no @ found): %s", uri)
 		}
+	} else if strings.HasPrefix(uri, "hysteria2://") {
+		scheme = "hysteria2"
 	} else {
 		return nil, fmt.Errorf("unsupported scheme")
 	}
@@ -252,6 +252,12 @@ func isValidShadowsocksMethod(method string) bool {
 		"xchacha20-ietf-poly1305": true,
 	}
 	return validMethods[method]
+}
+
+// isValidHysteria2ObfsType checks if the obfs type is supported by sing-box for Hysteria2
+// According to sing-box documentation, only "salamander" is supported
+func isValidHysteria2ObfsType(obfsType string) bool {
+	return obfsType == "salamander"
 }
 
 func extractTagAndComment(label string) (tag, comment string) {
@@ -505,13 +511,18 @@ func buildHysteria2Outbound(node *ParsedNode, outbound map[string]interface{}) {
 
 	// Optional: obfs (obfuscation)
 	if obfs := node.Query.Get("obfs"); obfs != "" {
-		obfsConfig := map[string]interface{}{
-			"type": obfs,
+		// Validate obfs type to prevent sing-box crashes
+		if !isValidHysteria2ObfsType(obfs) {
+			log.Printf("Parser: Warning: Invalid or unsupported Hysteria2 obfs type '%s'. Only 'salamander' is supported. Skipping obfs.", obfs)
+		} else {
+			obfsConfig := map[string]interface{}{
+				"type": obfs,
+			}
+			if obfsPassword := node.Query.Get("obfs-password"); obfsPassword != "" {
+				obfsConfig["password"] = obfsPassword
+			}
+			outbound["obfs"] = obfsConfig
 		}
-		if obfsPassword := node.Query.Get("obfs-password"); obfsPassword != "" {
-			obfsConfig["password"] = obfsPassword
-		}
-		outbound["obfs"] = obfsConfig
 	}
 
 	// Optional: bandwidth (up/down in Mbps)

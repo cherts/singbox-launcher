@@ -170,6 +170,7 @@ type ProxySource struct {
 	Outbounds   []OutboundConfig    `json:"outbounds,omitempty"`   // Local outbounds for this source (version 4)
 	TagPrefix   string              `json:"tag_prefix,omitempty"`  // Prefix to add to all node tags from this source
 	TagPostfix  string              `json:"tag_postfix,omitempty"` // Postfix to add to all node tags from this source
+	TagMask     string              `json:"tag_mask,omitempty"`    // Mask to replace entire tag (ignores tag_prefix and tag_postfix if set)
 }
 
 // OutboundConfig represents an outbound selector configuration (version 3)
