@@ -20,32 +20,6 @@ builds:
       - -s -w
     main: ./
     binary: '{{ .ProjectName }}'
-  - id: 'linux-arm64'
-    goos:
-      - linux
-    goarch:
-      - arm64
-    env:
-      - CGO_ENABLED=1
-      - CC=aarch64-linux-gnu-gcc
-    ldflags:
-      - -s -w
-    main: ./
-    binary: '{{ .ProjectName }}'
-  - id: 'linux-armv7'
-    goos:
-      - linux
-    goarch:
-      - arm
-    goarm:
-      - "7"
-    env:
-      - CGO_ENABLED=1
-      - CC=arm-linux-gnueabihf-gcc
-    ldflags:
-      - -s -w
-    main: ./
-    binary: '{{ .ProjectName }}'
 
   # ---------------------------------------------------------------------------
   # macOS Builds (CGO Enabled)
@@ -93,7 +67,7 @@ archives:
       - goos: windows
         formats: [zip]
     # Explicitly list builds to include (optional but good for clarity)
-    ids: ['linux', 'linux-arm64', 'linux-armv7', 'darwin', 'windows']
+    ids: ['linux', 'darwin', 'windows']
 
 # Generate Software Bill of Materials
 sboms:
