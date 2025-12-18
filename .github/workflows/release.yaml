@@ -24,7 +24,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xorg-dev libgl1-mesa-dev libglu1-mesa-dev gcc-multilib g++-multilib
+          sudo apt-get install -y xorg-dev libgl1-mesa-dev libglu1-mesa-dev
 
       - name: Set up Go
         uses: actions/setup-go@v6
