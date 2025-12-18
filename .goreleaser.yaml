@@ -10,29 +10,29 @@ builds:
   # ---------------------------------------------------------------------------
   # Linux Builds (CGO Enabled)
   # ---------------------------------------------------------------------------
-  - id: 'linux'
-    goos: [linux]
-    goarch: 
-      - '386'
-      - amd64
-    env: [ "CGO_ENABLED=1" ]
-    ldflags:
-      - -s -w
-    main: ./
-    binary: '{{ .ProjectName }}'
+  #- id: 'linux'
+  #  goos: [linux]
+  #  goarch: 
+  #    - '386'
+  #    - amd64
+  #  env: [ "CGO_ENABLED=1" ]
+  #  ldflags:
+  #    - -s -w
+  #  main: ./
+  #  binary: '{{ .ProjectName }}'
 
   # ---------------------------------------------------------------------------
   # macOS Builds (CGO Enabled)
   # ---------------------------------------------------------------------------
   # Requires a macOS runner.
-  - id: 'darwin'
-    goos: [darwin]
-    goarch: [amd64, arm64]
-    env: [ "CGO_ENABLED=1" ]
-    ldflags:
-      - -s -w
-    main: ./
-    binary: '{{ .ProjectName }}'
+  #- id: 'darwin'
+  #  goos: [darwin]
+  #  goarch: [amd64, arm64]
+  #  env: [ "CGO_ENABLED=1" ]
+  #  ldflags:
+  #    - -s -w
+  #  main: ./
+  #  binary: '{{ .ProjectName }}'
 
   # ---------------------------------------------------------------------------
   # Windows Builds (CGO Enabled)
@@ -67,7 +67,7 @@ archives:
       - goos: windows
         formats: [zip]
     # Explicitly list builds to include (optional but good for clarity)
-    ids: ['linux', 'darwin', 'windows']
+    ids: ['windows']
 
 # Generate Software Bill of Materials
 sboms:
