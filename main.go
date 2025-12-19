@@ -4,6 +4,7 @@ import (
 	_ "embed" // For embedding resource files (icons)
 	"flag"
 	"log"
+	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -49,87 +50,86 @@ func main() {
 
 	// Configure the system tray if the application is running on a Desktop platform.
 	if desk, ok := controller.Application.(desktop.App); ok {
+		log.Println("System tray: Desktop platform detected, initializing...")
+		// Create the menu update function for the system tray with proxy selection submenu
+		// Safe wrapper with debounce to prevent "Invalid menu handle" errors
+		// when menu updates happen too quickly
+		updateTrayMenu := func() {
+			controller.TrayMenuUpdateMutex.Lock()
+			defer controller.TrayMenuUpdateMutex.Unlock()
+
+			// Cancel previous timer if it exists
+			if controller.TrayMenuUpdateTimer != nil {
+				controller.TrayMenuUpdateTimer.Stop()
+			}
+
+			// Calculate dynamic delay based on number of proxies
+			// Get proxy count to determine appropriate delay
+			controller.APIStateMutex.RLock()
+			proxyCount := len(controller.ProxiesList)
+			controller.APIStateMutex.RUnlock()
+
+			// Dynamic delay formula:
+			// - Base delay: 100ms for small menus (0-10 proxies)
+			// - For each proxy above 10, add 20ms
+			// - Maximum delay: 500ms to ensure systray has enough time for large menus
+			delay := 100 * time.Millisecond
+			if proxyCount > 10 {
+				extraDelay := time.Duration(proxyCount-10) * 20 * time.Millisecond
+				delay += extraDelay
+				// Cap at 500ms maximum
+				if delay > 500*time.Millisecond {
+					delay = 500 * time.Millisecond
+				}
+			}
+
+			// Create new timer with dynamic debounce delay
+			// This prevents rapid successive menu updates that cause systray errors
+			controller.TrayMenuUpdateTimer = time.AfterFunc(delay, func() {
+				// Check if update is already in progress
+				controller.TrayMenuUpdateMutex.Lock()
+				if controller.TrayMenuUpdateInProgress {
+					controller.TrayMenuUpdateMutex.Unlock()
+					return // Skip update if already in progress
+				}
+				controller.TrayMenuUpdateInProgress = true
+				controller.TrayMenuUpdateMutex.Unlock()
+
+				fyne.Do(func() {
+					defer func() {
+						// Reset flag after update completes
+						controller.TrayMenuUpdateMutex.Lock()
+						controller.TrayMenuUpdateInProgress = false
+						controller.TrayMenuUpdateTimer = nil
+						controller.TrayMenuUpdateMutex.Unlock()
+					}()
+
+					menu := controller.CreateTrayMenu()
+					// Use recover to handle any panics during menu update
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								log.Printf("updateTrayMenu: Recovered from panic: %v", r)
+							}
+						}()
+						desk.SetSystemTrayMenu(menu)
+					}()
+				})
+			})
+		}
+		controller.UpdateTrayMenuFunc = updateTrayMenu
+
+		// Initialize system tray immediately (required on macOS, works on Windows too)
+		// On macOS, system tray must be initialized BEFORE app.Run() to work properly
+		log.Println("System tray: Setting icon...")
+		desk.SetSystemTrayIcon(controller.GreyIconData)
+		log.Println("System tray: Creating initial menu...")
+		initialMenu := controller.CreateTrayMenu()
+		desk.SetSystemTrayMenu(initialMenu)
+		log.Println("System tray: Icon and menu initialized successfully")
+
 		// Set a handler that fires when the application is fully ready
 		controller.Application.Lifecycle().SetOnStarted(func() {
-			go func() {
-				// Add a delay before setting the icon to give the tray time to initialize
-				time.Sleep(500 * time.Millisecond)
-				fyne.Do(func() {
-					// Set the initial icon on the main thread after the delay
-					desk.SetSystemTrayIcon(controller.GreyIconData)
-				})
-			}()
-			// Create the menu for the system tray with proxy selection submenu
-			// Safe wrapper with debounce to prevent "Invalid menu handle" errors
-			// when menu updates happen too quickly
-			updateTrayMenu := func() {
-				controller.TrayMenuUpdateMutex.Lock()
-				defer controller.TrayMenuUpdateMutex.Unlock()
-
-				// Cancel previous timer if it exists
-				if controller.TrayMenuUpdateTimer != nil {
-					controller.TrayMenuUpdateTimer.Stop()
-				}
-
-				// Calculate dynamic delay based on number of proxies
-				// Get proxy count to determine appropriate delay
-				controller.APIStateMutex.RLock()
-				proxyCount := len(controller.ProxiesList)
-				controller.APIStateMutex.RUnlock()
-
-				// Dynamic delay formula:
-				// - Base delay: 100ms for small menus (0-10 proxies)
-				// - For each proxy above 10, add 20ms
-				// - Maximum delay: 500ms to ensure systray has enough time for large menus
-				delay := 100 * time.Millisecond
-				if proxyCount > 10 {
-					extraDelay := time.Duration(proxyCount-10) * 20 * time.Millisecond
-					delay += extraDelay
-					// Cap at 500ms maximum
-					if delay > 500*time.Millisecond {
-						delay = 500 * time.Millisecond
-					}
-				}
-
-				// Create new timer with dynamic debounce delay
-				// This prevents rapid successive menu updates that cause systray errors
-				controller.TrayMenuUpdateTimer = time.AfterFunc(delay, func() {
-					// Check if update is already in progress
-					controller.TrayMenuUpdateMutex.Lock()
-					if controller.TrayMenuUpdateInProgress {
-						controller.TrayMenuUpdateMutex.Unlock()
-						return // Skip update if already in progress
-					}
-					controller.TrayMenuUpdateInProgress = true
-					controller.TrayMenuUpdateMutex.Unlock()
-
-					fyne.Do(func() {
-						defer func() {
-							// Reset flag after update completes
-							controller.TrayMenuUpdateMutex.Lock()
-							controller.TrayMenuUpdateInProgress = false
-							controller.TrayMenuUpdateTimer = nil
-							controller.TrayMenuUpdateMutex.Unlock()
-						}()
-
-						menu := controller.CreateTrayMenu()
-						// Use recover to handle any panics during menu update
-						func() {
-							defer func() {
-								if r := recover(); r != nil {
-									log.Printf("updateTrayMenu: Recovered from panic: %v", r)
-								}
-							}()
-							desk.SetSystemTrayMenu(menu)
-						}()
-					})
-				})
-			}
-			controller.UpdateTrayMenuFunc = updateTrayMenu
-
-			// Set initial menu
-			updateTrayMenu()
-
 			// Read config once at application startup
 			go func() {
 				log.Println("Application startup: Reading config...")
@@ -184,16 +184,24 @@ func main() {
 		controller.MainWindow.Hide()
 	})
 
-	controller.UpdateUI()
+	// Handle Dock icon click on macOS - show window when app is activated
+	// This makes Dock icon behave like "Open" in tray menu
+	// Platform-specific: macOS only (Dock is macOS-specific)
+	// Uses native NSApplicationDelegate to handle applicationShouldHandleReopen
+	// This is a workaround for Fyne issue #3845 (Dock click not showing hidden window)
+	if runtime.GOOS == "darwin" {
+		setupDockReopenHandler(func() {
+			fyne.Do(func() {
+				// Show() is safe to call even if window is already visible
+				controller.MainWindow.Show()
+				controller.MainWindow.RequestFocus()
+				log.Println("Dock icon clicked (native handler): Window shown and focused")
+			})
+		})
+		log.Println("Dock icon click handler registered for macOS (native NSApplicationDelegate)")
+	}
 
-	// Ensure tray menu is created and displayed after window is ready
-	// This ensures menu is properly initialized even if SetOnStarted hasn't fired yet
-	go func() {
-		time.Sleep(200 * time.Millisecond) // Small delay to ensure callback is set
-		if controller.UpdateTrayMenuFunc != nil {
-			controller.UpdateTrayMenuFunc()
-		}
-	}()
+	controller.UpdateUI()
 
 	// Check if config.json exists and show a warning if it doesn't
 	core.CheckConfigFileExists(controller)
@@ -204,10 +212,29 @@ func main() {
 	// Check if sing-box is running on startup and show a warning if it is.
 	core.CheckIfSingBoxRunningAtStartUtil(controller)
 
-	controller.MainWindow.ShowAndRun() // Show the main window and start the main Fyne event loop.
-	// The code below executes only after ShowAndRun() finishes.
+	// Use app.Run() instead of ShowAndRun() for windowless support
+	// This allows the app to keep running even when window is closed/hidden
+	// On macOS, this enables standard Dock behavior (applicationShouldHandleReopen)
+	// See: https://github.com/fyne-io/fyne/issues/3845
+	if !*startInTray {
+		// Show window on startup if not starting in tray
+		controller.MainWindow.Show()
+	}
+
+	// Start the application event loop (windowless mode)
+	// This keeps the app running even when window is hidden/closed
+	// The menu already has "Open" item that calls MainWindow.Show()
+	controller.Application.Run()
+
+	// The code below executes only after app.Run() finishes (when app.Quit() is called).
 	// This is where final cleanup is performed.
 	log.Println("Application shutting down.")
+	
+	// Cleanup platform-specific handlers
+	if runtime.GOOS == "darwin" {
+		cleanupDockReopenHandler()
+	}
+	
 	controller.GracefulExit()
 
 	if controller.MainLogFile != nil {
