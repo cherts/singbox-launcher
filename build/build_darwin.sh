@@ -41,18 +41,14 @@ echo "=== Setting build environment ==="
 export CGO_ENABLED=1
 export GOOS=darwin
 
-# Auto-detect architecture (arm64 for Apple Silicon, amd64 for Intel)
-ARCH=$(uname -m)
-if [ "$ARCH" = "arm64" ]; then
-    export GOARCH=arm64
-    echo "Architecture: arm64 (Apple Silicon)"
-elif [ "$ARCH" = "x86_64" ]; then
-    export GOARCH=amd64
-    echo "Architecture: amd64 (Intel)"
-else
-    export GOARCH=amd64
-    echo "Architecture: amd64 (default, detected: $ARCH)"
+# Check for lipo (required for universal binary)
+if ! command -v lipo &> /dev/null; then
+    echo "ERROR: lipo not found. Please install Xcode or Command Line Tools:"
+    echo "  xcode-select --install"
+    exit 1
 fi
+
+echo "Building universal binary for both architectures (arm64 + amd64)..."
 
 # Check if full Xcode is required (Command Line Tools have incomplete SDK)
 UTCORETYPES_H="$SDK_PATH/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Headers/UTCoreTypes.h"
@@ -111,86 +107,115 @@ VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "0.4.1")
 echo "Version: $VERSION"
 
 echo ""
-echo "=== Starting Build ==="
-go build -buildvcs=false -ldflags="-s -w -X singbox-launcher/internal/constants.AppVersion=$VERSION" -o "$OUTPUT_FILENAME"
+echo "=== Building for arm64 (Apple Silicon) ==="
+TEMP_ARM64="${BASE_NAME}_arm64"
+GOARCH=arm64 go build -buildvcs=false -ldflags="-s -w -X singbox-launcher/internal/constants.AppVersion=$VERSION" -o "$TEMP_ARM64"
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "=== Creating .app bundle ==="
-    
-    # Create .app bundle structure
-    APP_NAME="${BASE_NAME}.app"
-    APP_CONTENTS="$APP_NAME/Contents"
-    APP_MACOS="$APP_CONTENTS/MacOS"
-    APP_RESOURCES="$APP_CONTENTS/Resources"
-    
-    # Remove old bundle if exists
-    rm -rf "$APP_NAME"
-    
-    # Create directory structure
-    mkdir -p "$APP_MACOS"
-    mkdir -p "$APP_RESOURCES"
-    
-    # Move binary to MacOS directory
-    mv "$OUTPUT_FILENAME" "$APP_MACOS/$BASE_NAME"
-    chmod +x "$APP_MACOS/$BASE_NAME"
-    
-    # Handle application icon
-    ICON_FILE="assets/app.icns"
-    ICON_NAME="app"
-    HAS_ICON=false
-    
-    if [ -f "$ICON_FILE" ]; then
-        echo "=== Copying application icon ==="
-        cp "$ICON_FILE" "$APP_RESOURCES/${ICON_NAME}.icns"
-        HAS_ICON=true
-        echo "Icon copied: $ICON_FILE -> $APP_RESOURCES/${ICON_NAME}.icns"
-    else
-        echo "=== Icon not found: $ICON_FILE (skipping icon setup) ==="
-    fi
-    
-    # Create Info.plist with optional icon
-    {
-        echo '<?xml version="1.0" encoding="UTF-8"?>'
-        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
-        echo '<plist version="1.0">'
-        echo '<dict>'
-        echo '    <key>CFBundleExecutable</key>'
-        echo "    <string>$BASE_NAME</string>"
-        echo '    <key>CFBundleIdentifier</key>'
-        echo '    <string>com.singbox.launcher</string>'
-        echo '    <key>CFBundleName</key>'
-        echo '    <string>Sing-Box Launcher</string>'
-        echo '    <key>CFBundlePackageType</key>'
-        echo '    <string>APPL</string>'
-        if [ "$HAS_ICON" = true ]; then
-            echo '    <key>CFBundleIconFile</key>'
-            echo "    <string>$ICON_NAME</string>"
-        fi
-        echo '    <key>CFBundleShortVersionString</key>'
-        echo "    <string>$VERSION</string>"
-        echo '    <key>CFBundleVersion</key>'
-        echo "    <string>$VERSION</string>"
-        echo '    <key>LSMinimumSystemVersion</key>'
-        echo '    <string>10.15</string>'
-        echo '    <key>NSHighResolutionCapable</key>'
-        echo '    <true/>'
-        echo '    <key>LSUIElement</key>'
-        echo '    <false/>'
-        echo '</dict>'
-        echo '</plist>'
-    } > "$APP_CONTENTS/Info.plist"
-    
-    echo "Created .app bundle: $APP_NAME"
-    echo ""
-    echo "========================================"
-    echo "  Build completed successfully!"
-    echo "  Output: $APP_NAME"
-    echo "  Run with: open $APP_NAME"
-    echo "========================================"
-else
-    echo ""
-    echo "!!! Build failed !!!"
+if [ $? -ne 0 ]; then
+    echo "!!! Build failed for arm64 !!!"
     exit 1
 fi
+
+echo ""
+echo "=== Building for amd64 (Intel) ==="
+TEMP_AMD64="${BASE_NAME}_amd64"
+GOARCH=amd64 go build -buildvcs=false -ldflags="-s -w -X singbox-launcher/internal/constants.AppVersion=$VERSION" -o "$TEMP_AMD64"
+
+if [ $? -ne 0 ]; then
+    echo "!!! Build failed for amd64 !!!"
+    rm -f "$TEMP_ARM64"
+    exit 1
+fi
+
+echo ""
+echo "=== Creating universal binary ==="
+lipo -create -output "$OUTPUT_FILENAME" "$TEMP_ARM64" "$TEMP_AMD64"
+LIPO_STATUS=$?
+
+# Clean up temporary binaries
+rm -f "$TEMP_ARM64" "$TEMP_AMD64"
+
+if [ $LIPO_STATUS -ne 0 ]; then
+    echo "!!! Failed to create universal binary !!!"
+    exit 1
+fi
+
+echo "Universal binary created: $OUTPUT_FILENAME"
+# Verify the binary contains both architectures
+echo "Binary architectures:"
+lipo -info "$OUTPUT_FILENAME"
+
+echo ""
+echo "=== Creating .app bundle ==="
+
+# Create .app bundle structure
+APP_NAME="${BASE_NAME}.app"
+APP_CONTENTS="$APP_NAME/Contents"
+APP_MACOS="$APP_CONTENTS/MacOS"
+APP_RESOURCES="$APP_CONTENTS/Resources"
+
+# Remove old bundle if exists
+rm -rf "$APP_NAME"
+
+# Create directory structure
+mkdir -p "$APP_MACOS"
+mkdir -p "$APP_RESOURCES"
+
+# Move binary to MacOS directory
+mv "$OUTPUT_FILENAME" "$APP_MACOS/$BASE_NAME"
+chmod +x "$APP_MACOS/$BASE_NAME"
+
+# Handle application icon
+ICON_FILE="assets/app.icns"
+ICON_NAME="app"
+HAS_ICON=false
+
+if [ -f "$ICON_FILE" ]; then
+    echo "=== Copying application icon ==="
+    cp "$ICON_FILE" "$APP_RESOURCES/${ICON_NAME}.icns"
+    HAS_ICON=true
+    echo "Icon copied: $ICON_FILE -> $APP_RESOURCES/${ICON_NAME}.icns"
+else
+    echo "=== Icon not found: $ICON_FILE (skipping icon setup) ==="
+fi
+
+# Create Info.plist with optional icon
+{
+    echo '<?xml version="1.0" encoding="UTF-8"?>'
+    echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+    echo '<plist version="1.0">'
+    echo '<dict>'
+    echo '    <key>CFBundleExecutable</key>'
+    echo "    <string>$BASE_NAME</string>"
+    echo '    <key>CFBundleIdentifier</key>'
+    echo '    <string>com.singbox.launcher</string>'
+    echo '    <key>CFBundleName</key>'
+    echo '    <string>Sing-Box Launcher</string>'
+    echo '    <key>CFBundlePackageType</key>'
+    echo '    <string>APPL</string>'
+    if [ "$HAS_ICON" = true ]; then
+        echo '    <key>CFBundleIconFile</key>'
+        echo "    <string>$ICON_NAME</string>"
+    fi
+    echo '    <key>CFBundleShortVersionString</key>'
+    echo "    <string>$VERSION</string>"
+    echo '    <key>CFBundleVersion</key>'
+    echo "    <string>$VERSION</string>"
+    echo '    <key>LSMinimumSystemVersion</key>'
+    echo '    <string>10.15</string>'
+    echo '    <key>NSHighResolutionCapable</key>'
+    echo '    <true/>'
+    echo '    <key>LSUIElement</key>'
+    echo '    <false/>'
+    echo '</dict>'
+    echo '</plist>'
+} > "$APP_CONTENTS/Info.plist"
+
+echo "Created .app bundle: $APP_NAME"
+echo ""
+echo "========================================"
+echo "  Build completed successfully!"
+echo "  Output: $APP_NAME (universal binary: arm64 + amd64)"
+echo "  Run with: open $APP_NAME"
+echo "========================================"
 
